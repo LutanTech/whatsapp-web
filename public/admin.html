@@ -1,0 +1,2610 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Bot Admin Console | Lutan Tech</title>
+    <meta name="description" content="WhatsApp Bot Admin Console for monitoring sessions, messages, commands, connections, logs and system activity.">
+    <meta name="author" content="Lutan Tech">
+    <meta name="theme-color" content="#030712">
+    <meta name="color-scheme" content="dark">
+    
+    <!-- Icons & Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="/tailwind.js"></script>
+    <!-- Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        anon: {
+                            bg: '#030712',
+                            sidebar: '#070d19',
+                            panel: '#0f172a',
+                            panelHover: '#1e293b',
+                            chatBg: '#050a14',
+                            msgIn: '#111c33',
+                            msgOut: '#064e3b',
+                            accent: '#10b981',
+                            accentHover: '#059669',
+                            cyan: '#06b6d4',
+                            text: '#f8fafc',
+                            muted: '#64748b',
+                            border: '#1e293b'
+                        }
+                    },
+                    boxShadow: {
+                        'glow-emerald': '0 0 30px -5px rgba(16, 185, 129, 0.35)',
+                        'glow-cyan': '0 0 25px -5px rgba(6, 182, 212, 0.3)',
+                        'glow-subtle': '0 10px 30px -10px rgba(0,0,0,0.8)',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'pop-in': 'popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'slide-up': 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'fade-in': 'fadeIn 0.2s ease-out forwards',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        popIn: {
+                            '0%': { transform: 'scale(0.94) translateY(10px)', opacity: '0' },
+                            '100%': { transform: 'scale(1) translateY(0)', opacity: '1' }
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(100%)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' }
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-8px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #030712;
+            color: #f8fafc;
+            height: 100%;
+        }
+
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-modal {
+            background: rgba(7, 13, 25, 0.92);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .glass-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Custom Scrollbar */
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.25);
+            border-radius: 9999px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: rgba(16, 185, 129, 0.5);
+        }
+
+        /* Background Pattern */
+        .chat-bg-pattern {
+            background-color: #030712;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+                radial-gradient(rgba(16, 185, 129, 0.03) 1px, transparent 0);
+            background-size: 100% 100%, 24px 24px;
+        }
+
+        /* Ambient Glow Helpers */
+        .glow-active {
+            box-shadow: 0 0 20px -3px rgba(16, 185, 129, 0.4);
+        }
+
+        .text-glow {
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+        @keyframes statusProgress {
+            from { width: 0%; }
+            to { width: 100%; }
+        }
+        
+        .animate-status-progress {
+            animation: statusProgress linear forwards;
+        }
+        .msg-group {
+            gap: 8px;
+            width: 100%;
+            align-items: flex-end;
+        }
+        .input-group {
+            gap: 8px;
+            min-width: 0;
+            align-items: flex-end;
+        }
+        .msg-action-btn, .send-btn {
+            padding: 0;
+            border-radius: 8px;
+            background: rgba(16, 185, 129, .12);
+            border: 1px solid rgba(16, 185, 129, .25);
+            font-size: 15px;
+            width: 38px;
+            height: 38px;
+            flex: 0 0 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #6ee7b7;
+            transition: .18s ease;
+        }
+        .msg-action-btn:disabled, .send-btn:disabled {
+            opacity: .45;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .msg-action-btn:hover, .send-btn:hover {
+            color: #ecfdf5;
+            background: rgba(16, 185, 129, .28);
+            border-color: rgba(52, 211, 153, .65);
+            transform: translateY(-1px);
+        }
+        .msg-action-btn.is-recording {
+            color: #fecaca;
+            background: rgba(244, 63, 94, .22);
+            border-color: rgba(251, 113, 133, .7);
+            animation: pulse 1.2s infinite;
+        }
+        .send-btn {
+            color: #052e1b;
+            background: linear-gradient(135deg, #34d399, #14b8a6);
+            border-color: transparent;
+        }
+        .composer-editor {
+            min-width: 0;
+            min-height: 54px;
+        }
+        .composer-tools,
+        .composer-send-tools {
+            pointer-events: auto;
+        }
+        #msg-input {
+            min-height: 54px;
+            max-height: 150px;
+            resize: none;
+            overflow-y: auto;
+            line-height: 1.35;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(52, 211, 153, .6) transparent;
+        }
+        #msg-input::-webkit-scrollbar {
+            width: 5px;
+        }
+        #msg-input::-webkit-scrollbar-thumb {
+            background: rgba(52, 211, 153, .6);
+            border-radius: 999px;
+        }
+        @media (max-width: 460px) {
+            .composer-tools {
+                gap: 0;
+            }
+            .composer-tools .msg-action-btn:nth-child(2) {
+                display: none;
+            }
+            #msg-input {
+                padding-left: 12px;
+                padding-right: 88px;
+            }
+        }
+        #replyPreview, #attachmentPreview {
+            display: none;
+        }
+        #replyPreview.is-visible, #attachmentPreview.is-visible {
+            display: flex;
+        }
+        .composer-chip {
+            background: rgba(15, 23, 42, .7);
+            border: 1px solid rgba(71, 85, 105, .65);
+        }
+        @keyframes pulse {
+            50% { opacity: .55; }
+        }
+        body.privacy-mode .privacy-sensitive {
+            filter: blur(5px);
+            transition: filter .18s ease;
+            user-select: none;
+        }
+        body.privacy-mode .privacy-sensitive:hover {
+            filter: blur(1px);
+        }
+        body.theme-midnight #adminDashboard,
+        body.theme-midnight #sidebar,
+        body.theme-midnight #mainChatArea {
+            background-color: #020617;
+        }
+        body.theme-midnight #chatMessagesContainer {
+            background-color: #030712;
+        }
+        body.theme-emerald #adminDashboard,
+        body.theme-emerald #sidebar,
+        body.theme-emerald #mainChatArea {
+            background-color: #031c1a;
+        }
+        body.theme-emerald #chatMessagesContainer {
+            background-color: #021311;
+        }
+        .context-menu {
+            min-width: 250px;
+            max-width: min(320px, calc(100vw - 24px));
+            max-height: min(520px, calc(100vh - 24px));
+            overflow-y: auto;
+            scrollbar-width: thin;
+            box-shadow: 0 22px 70px rgba(0,0,0,.55);
+        }
+        .context-menu-action {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+            padding: 11px 14px;
+            border-radius: 8px;
+            color: #dbe4f0;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: left;
+            transition: .16s ease;
+        }
+        .context-menu-action:hover {
+            color: #fff;
+            background: rgba(16,185,129,.14);
+        }
+        .context-menu-action i {
+            width: 18px;
+            text-align: center;
+            color: #a7b4c8;
+        }
+        .context-menu-action:hover i { color: #6ee7b7; }
+        .quick-reactions {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            gap: 4px;
+            padding: 14px 10px;
+            border-radius: 10px;
+            background: rgba(2,6,23,.78);
+            border: 1px solid rgba(71,85,105,.45);
+        }
+        .quick-reaction {
+            width: 42px;
+            height: 36px;
+            border-radius: 8px;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform .16s ease, background .16s ease;
+        }
+        .quick-reaction:hover {
+            transform: translateY(-2px) scale(1.08);
+            background: rgba(255,255,255,.08);
+        }
+    </style>
+</head>
+
+<body class="bg-anon-bg text-anon-text h-screen overflow-hidden font-sans select-none antialiased flex flex-col">
+
+    <div id="loginGate" class="fixed inset-0 bg-anon-bg/95 backdrop-blur-2xl z-50 flex items-center justify-center p-4 transition-all duration-300">
+        <div class="glass-modal max-w-md w-full rounded-2xl p-8 shadow-2xl space-y-6 shadow-glow-emerald border border-anon-accent/30 relative overflow-hidden animate-pop-in">
+            <!-- Decorative Accent Lines -->
+            <div class="absolute -top-24 -left-24 w-48 h-48 bg-anon-accent/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-anon-cyan/20 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="text-center space-y-3 relative z-10">
+                <div class="relative inline-flex p-4 bg-emerald-500/10 rounded-xl text-anon-accent border border-anon-accent/30 shadow-inner animate-float">
+                    <i class="fa-solid fa-user-shield text-4xl"></i>
+                    <span class="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-anon-accent opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-anon-accent"></span>
+                    </span>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-anon-text tracking-tight">AnonChat Console</h2>
+                    <p class="text-xs text-anon-muted mt-1.5 leading-relaxed">Enter administrator credentials to monitor live WhatsApp sessions</p>
+                </div>
+            </div>
+            
+            <form id="adminLoginForm" onsubmit="handleLogin(event)" class="space-y-4 relative z-10">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5 ml-1">Admin Email</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-envelope absolute left-4 top-3.5 text-xs text-anon-muted"></i>
+                        <input type="email" id="adminEmail" placeholder="admin@bot.com" required
+                            class="w-full bg-anon-panel/80 border border-anon-border/80 rounded-lg pl-10 pr-4 py-3 text-sm outline-none focus:border-anon-accent focus:ring-1 focus:ring-anon-accent transition-all text-anon-text placeholder-anon-muted/50">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5 ml-1">Access Token / Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-4 top-3.5 text-xs text-anon-muted"></i>
+                        <input type="password" id="adminPassword" placeholder="••••••••" required
+                            class="w-full bg-anon-panel/80 border border-anon-border/80 rounded-lg pl-10 pr-4 py-3 text-sm outline-none focus:border-anon-accent focus:ring-1 focus:ring-anon-accent transition-all text-anon-text placeholder-anon-muted/50">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold py-3.5 rounded-lg text-sm transition-all transform active:scale-[0.98] shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket text-base"></i> Authenticate Console
+                </button>
+            </form>
+
+            <div class="pt-2 text-center text-[11px] text-anon-muted flex items-center justify-center gap-2">
+                <i class="fa-solid fa-shield-halved text-anon-accent"></i> Secured with End-to-End Session Monitoring
+            </div>
+        </div>
+    </div>
+
+    <div id="unauthorizedScreen" class="fixed inset-0 bg-anon-bg z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-modal max-w-md w-full rounded-2xl p-8 text-center space-y-5 border border-rose-500/30 shadow-2xl animate-pop-in">
+            <div class="w-16 h-16 bg-rose-500/10 text-rose-500 rounded-xl flex items-center justify-center mx-auto border border-rose-500/20 shadow-inner">
+                <i class="fa-solid fa-ban text-3xl"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-100">403 Access Denied</h2>
+            <p id="unauthorizedMsg" class="text-xs text-anon-muted leading-relaxed"></p>
+            <button onclick="retryLogin()" class="px-6 py-2.5 bg-anon-panel hover:bg-anon-panelHover rounded-lg text-xs font-semibold transition-all border border-anon-border text-slate-200">
+                Return to Login
+            </button>
+        </div>
+    </div>
+
+    <div id="adminDashboard" class="hidden h-[100vh] flex w-full relative overflow-hidden bg-anon-bg">
+        
+        <!-- Sidebar Navigation Drawer -->
+        <aside id="sidebar" class="w-full md:w-[380px] lg:w-[420px] flex-shrink-0 border-r border-anon-border/70 bg-anon-sidebar flex flex-col h-full z-20 transition-all duration-300">
+            
+            <!-- Sidebar Header -->
+            <header class="p-4 bg-anon-sidebar flex items-center justify-between shrink-0 border-b border-anon-border/60">
+                <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <div class="w-11 h-11 bg-slate-900 border border-anon-border/80 rounded-xl flex items-center justify-center text-anon-accent shadow-inner overflow-hidden">
+                            <i class="fa-solid fa-user-ninja text-xl text-anon-accent"></i>
+                        </div>
+                        <span id="socket-dot" class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-500 border-2 border-anon-sidebar"></span>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="font-bold text-sm text-anon-text tracking-wide">Lutan Admin</h1>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono border border-emerald-500/20 font-semibold">v2.4</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-xs font-medium text-anon-accent">
+                            <span id="socket-text">Connecting...</span>
+                            <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-1">
+                    <button onclick="openModal('pairModal')" class="w-9 h-9 rounded-lg text-anon-muted hover:text-anon-text hover:bg-anon-panel/80 flex items-center justify-center transition-all" title="Pair New Device">
+                        <i class="fa-solid fa-qrcode text-sm"></i>
+                    </button>
+                    <button onclick="fetchConversations()" class="w-9 h-9 rounded-lg text-anon-muted hover:text-anon-text hover:bg-anon-panel/80 flex items-center justify-center transition-all" title="Refresh Feed">
+                        <i class="fa-solid fa-arrows-rotate text-sm"></i>
+                    </button>
+                    <button onclick="openModal('whatsappSettingsModal')" class="w-9 h-9 rounded-lg text-anon-muted hover:text-anon-text hover:bg-anon-panel/80 flex items-center justify-center transition-all" title="WhatsApp Settings">
+                        <i class="fa-solid fa-sliders text-sm"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Search & Banner Box -->
+            <div class="p-3.5 space-y-3 shrink-0 border-b border-anon-border/40">
+                <!-- Info Banner -->
+                <div class="glass-card rounded-xl p-3 border border-anon-accent/20 bg-emerald-950/20 relative overflow-hidden flex items-start gap-3">
+                    <div class="p-2 bg-anon-accent/15 text-anon-accent rounded-lg border border-anon-accent/30 shrink-0 mt-0.5">
+                        <i class="fa-solid fa-shield-halved text-sm"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xs font-bold text-anon-accent tracking-wide">Live Audit Console</h4>
+                            <button onclick="this.closest('.glass-card').remove()" class="text-anon-muted hover:text-anon-text text-[10px]">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-slate-300 leading-relaxed mt-0.5">
+                            Realtime stream of active WhatsApp sessions, broadcast statuses & message history.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Search Input -->
+                <div class="relative flex items-center bg-anon-panel/80 rounded-lg px-3.5 py-2.5 border border-anon-border/80 focus-within:border-anon-accent/50 focus-within:ring-1 focus-within:ring-anon-accent/50 transition-all">
+                    <i class="fa-solid fa-magnifying-glass text-anon-muted text-xs mr-3"></i>
+                    <input id="convSearch" oninput="renderConversationsList()" placeholder="Search contacts, messages, sessions..."
+                        class="w-full bg-transparent text-xs outline-none text-anon-text placeholder-anon-muted/60">
+                    <button onclick="clearSearch()" class="text-anon-muted hover:text-anon-text hidden" id="searchClearBtn">
+                        <i class="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                </div>
+
+                <!-- Section Header -->
+                <div class="flex items-center justify-between pt-1 px-1">
+                    <span class="text-[11px] font-bold text-anon-muted tracking-wider uppercase" id="sectionHeaderTitle">ACTIVE THREADS</span>
+                    <span class="text-[10px] bg-anon-accent/15 text-anon-accent border border-anon-accent/30 font-semibold px-2.5 py-0.5 rounded-full font-mono" id="onlineCountBadge">
+                        0 Active
+                    </span>
+                </div>
+            </div>
+
+            <!-- Conversations Scrollable Area -->
+            <div id="conversationsList" class="flex-1 overflow-y-auto scrollbar-thin px-2 py-1 space-y-1">
+                <div class="text-center py-16 text-anon-muted space-y-3">
+                    <i class="fa-solid fa-circle-notch fa-spin text-2xl text-anon-accent"></i>
+                    <p class="text-xs">Loading active conversations...</p>
+                </div>
+            </div>
+
+            <nav class="h-16 bg-slate-950/90 border-t border-anon-border flex items-center justify-around shrink-0 px-2 z-20 backdrop-blur-md">
+                <button onclick="setFilter('all')" id="nav-all" class="nav-tab flex flex-col items-center justify-center flex-1 h-full text-anon-accent border-t-2 border-anon-accent transition-all py-1">
+                    <i class="fa-solid fa-comments text-base mb-1"></i>
+                    <span class="text-[10px] font-semibold">Chats</span>
+                </button>
+                <button onclick="setFilter('group')" id="nav-group" class="nav-tab flex flex-col items-center justify-center flex-1 h-full text-anon-muted border-t-2 border-transparent hover:text-anon-text transition-all py-1">
+                    <i class="fa-solid fa-users text-base mb-1"></i>
+                    <span class="text-[10px] font-semibold">Groups</span>
+                </button>
+                <button onclick="setFilter('status')" id="nav-status" class="nav-tab flex flex-col items-center justify-center flex-1 h-full text-anon-muted border-t-2 border-transparent hover:text-anon-text transition-all py-1">
+                    <i class="fa-solid fa-bullhorn text-base mb-1"></i>
+                    <span class="text-[10px] font-semibold">Updates</span>
+                </button>
+                <button onclick="setFilter('private')" id="nav-private" class="nav-tab flex flex-col items-center justify-center flex-1 h-full text-anon-muted border-t-2 border-transparent hover:text-anon-text transition-all py-1">
+                    <i class="fa-solid fa-user-lock text-base mb-1"></i>
+                    <span class="text-[10px] font-semibold">Direct</span>
+                </button>
+            </nav>
+        </aside>
+
+        <main class="flex-1 flex flex-col h-full bg-anon-chatBg chat-bg-pattern relative hidden md:flex" id="mainChatArea" style="width:stretch">
+            
+            <!-- Empty Unselected Chat View -->
+            <div id="emptyChatState" class="absolute inset-0 flex flex-col items-center justify-center text-center p-8 bg-anon-bg/80 backdrop-blur-sm z-10">
+                <div class="relative mb-6">
+                    <div class="w-24 h-24 rounded-2xl bg-anon-accent/10 border border-anon-accent/30 flex items-center justify-center text-anon-accent shadow-glow-emerald animate-float">
+                        <i class="fa-solid fa-comments text-4xl"></i>
+                    </div>
+                </div>
+                <h2 class="text-2xl font-bold text-anon-text tracking-tight mb-2">No Active Thread Selected</h2>
+                <p class="text-anon-muted text-xs max-w-md leading-relaxed">
+                    Select a contact or group from the list to view real-time chat history, inspect attachments, status broadcasts, or manage session streams.
+                </p>
+                <div class="mt-6 flex items-center gap-2 text-anon-accent text-xs bg-anon-panel/80 px-4 py-2 rounded-full border border-anon-border shadow-inner font-mono">
+                    <i class="fa-solid fa-lock text-[11px]"></i> Session Monitor Ready
+                </div>
+            </div>
+
+            <!-- Active Selected Chat Workspace -->
+            <div id="activeChatView" class="hidden flex-col h-full w-full">
+                <!-- Chat Top Header Bar -->
+                <header class="h-16 px-5 bg-anon-sidebar flex items-center justify-between shrink-0 border-b border-anon-border z-20 shadow-md">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <button onclick="closeMobileChat()" class="md:hidden text-anon-muted hover:text-anon-text p-2 rounded-lg hover:bg-anon-panel">
+                            <i class="fa-solid fa-arrow-left text-base"></i>
+                        </button>
+                        
+                        <div class="relative">
+                            <div class="w-10 h-10 bg-anon-panel border border-anon-border rounded-full flex items-center justify-center text-anon-accent shrink-0 shadow-inner">
+                                <i id="chatHeaderIcon" class="fa-solid fa-user text-sm"></i>
+                            </div>
+                            <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-anon-sidebar"></span>
+                        </div>
+                        
+                        <div class="min-w-0">
+                            <h2 id="chatTitle" class="font-bold text-sm text-anon-text truncate">Select a conversation</h2>
+                            <p id="chatSubtitle" class="text-[11px] text-anon-accent font-mono truncate">Online</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span id="chatSessionBadge" class="hidden lg:inline-block px-3 py-1 bg-anon-panel/80 rounded-md text-[11px] border border-anon-border/80 font-mono text-anon-muted">
+                            Session: Active
+                        </span>
+                        <button onclick="openConversation(activeThread?.conversation_key)" class="w-9 h-9 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors" title="Reload Conversation">
+                            <i class="fa-solid fa-arrows-rotate text-xs"></i>
+                        </button>
+                        <button onclick="logoutAdmin()" class="w-9 h-9 rounded-lg hover:bg-rose-500/10 hover:text-rose-400 text-rose-500 flex items-center justify-center transition-colors" title="Exit Admin Console">
+                            <i class="fa-solid fa-power-off text-xs"></i>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Scrollable Messages Body Container -->
+                <div id="chatMessagesContainer" class="flex-1 overflow-y-auto scrollbar-thin p-4 sm:p-6 space-y-4 z-10 flex flex-col" onclick="closeContextMenus()" oncontextmenu="openChatContextMenu(event); return false;">
+                </div>
+
+                <!-- Message Composer -->
+                <footer class="p-3 sm:px-5 bg-anon-sidebar border-t border-anon-border shrink-0">
+                    <div id="replyPreview" class="composer-chip items-center gap-2 rounded-lg px-3 py-2 mb-2 text-[11px]">
+                        <i class="fa-solid fa-reply text-anon-accent"></i>
+                        <div class="min-w-0 flex-1">
+                            <div class="text-[10px] uppercase tracking-wider text-anon-accent font-bold">Replying to <span id="replySender"></span></div>
+                            <div id="replyText" class="truncate text-slate-300"></div>
+                        </div>
+                        <button type="button" onclick="clearReplyTarget()" class="w-7 h-7 rounded-md text-anon-muted hover:text-white hover:bg-white/10">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div id="attachmentPreview" class="composer-chip items-center gap-2 rounded-lg px-3 py-2 mb-2 text-[11px]">
+                        <i id="attachmentIcon" class="fa-solid fa-paperclip text-anon-accent"></i>
+                        <div class="min-w-0 flex-1">
+                            <div id="attachmentName" class="truncate text-slate-200 font-semibold"></div>
+                            <div id="attachmentMeta" class="text-[10px] text-anon-muted"></div>
+                        </div>
+                        <button type="button" onclick="clearAttachment()" class="w-7 h-7 rounded-md text-anon-muted hover:text-white hover:bg-white/10">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div id="emojiMenu" class="hidden flex-wrap gap-1 p-2 mb-2 rounded-lg bg-anon-panel border border-anon-border shadow-xl max-h-24 overflow-y-auto">
+                        <button type="button" onclick="insertEmoji('😀')" class="hover:bg-white/10 rounded p-1.5">😀</button>
+                        <button type="button" onclick="insertEmoji('😂')" class="hover:bg-white/10 rounded p-1.5">😂</button>
+                        <button type="button" onclick="insertEmoji('❤️')" class="hover:bg-white/10 rounded p-1.5">❤️</button>
+                        <button type="button" onclick="insertEmoji('👍')" class="hover:bg-white/10 rounded p-1.5">👍</button>
+                        <button type="button" onclick="insertEmoji('🙏')" class="hover:bg-white/10 rounded p-1.5">🙏</button>
+                        <button type="button" onclick="insertEmoji('🔥')" class="hover:bg-white/10 rounded p-1.5">🔥</button>
+                        <button type="button" onclick="insertEmoji('✅')" class="hover:bg-white/10 rounded p-1.5">✅</button>
+                        <button type="button" onclick="insertEmoji('❌')" class="hover:bg-white/10 rounded p-1.5">❌</button>
+                    </div>
+
+                    <div id="composerStatus" class="hidden text-[10px] text-anon-muted px-1 pb-1"></div>
+                    <form class="msg-group flex" onsubmit="sendComposerMessage(event)">
+                        <input id="attachmentInput" type="file" class="hidden" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt" onchange="handleAttachmentChange(event)">
+                        <input id="cameraInput" type="file" class="hidden" accept="image/*" capture="environment" onchange="handleAttachmentChange(event)">
+                        <div class="composer-editor relative flex-1 min-w-0">
+                            <textarea id="msg-input" rows="1" placeholder="Write a message…" autocomplete="off" class="w-full min-h-[54px] max-h-[150px] overflow-y-auto bg-anon-panel/80 border border-anon-border/80 rounded-xl pl-4 pr-28 pb-12 pt-3 text-xs text-anon-text placeholder-anon-muted/60 outline-none focus:border-anon-accent/60 focus:ring-1 focus:ring-anon-accent/30"></textarea>
+                            <div class="composer-tools absolute left-2 bottom-2 flex items-center gap-1 z-10">
+                                <button type="button" class="msg-action-btn !w-8 !h-8 !basis-8 !rounded-lg" onclick="openAttachmentPicker()" title="Attach a file">
+                                    <i class="fa-solid fa-paperclip text-xs"></i>
+                                </button>
+                                <button type="button" class="msg-action-btn !w-8 !h-8 !basis-8 !rounded-lg" onclick="openCameraPicker()" title="Take a photo">
+                                    <i class="fa-solid fa-camera text-xs"></i>
+                                </button>
+                                <button type="button" class="msg-action-btn !w-8 !h-8 !basis-8 !rounded-lg" onclick="toggleEmojiMenu()" title="Add emoji">
+                                    <i class="fa-regular fa-face-smile text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="composer-send-tools absolute right-2 bottom-2 flex items-center gap-1 z-10">
+                                <button id="recordBtn" type="button" class="msg-action-btn !w-8 !h-8 !basis-8 !rounded-lg" onclick="toggleAudioRecording()" title="Record voice message">
+                                    <i class="fa-solid fa-microphone text-xs"></i>
+                                </button>
+                                <button id="sendBtn" type="submit" class="send-btn !w-8 !h-8 !basis-8 !rounded-lg" title="Send message">
+                                    <i class="fa-solid fa-paper-plane text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <div class="flex justify-between px-1 pt-1 text-[9px] text-anon-muted/70">
+                        <span>Enter to send · Shift+Enter for a new line</span>
+                        <span id="recordingTimer"></span>
+                    </div>
+                </footer>
+            </div>
+        </main>
+    </div>
+
+    <div id="whatsappSettingsModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4 backdrop-blur-md transition-all duration-200">
+        <div class="glass-modal max-w-2xl w-full rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-anon-border animate-pop-in">
+            <div class="p-5 bg-anon-sidebar border-b border-anon-border flex justify-between items-center">
+                <h3 class="font-bold text-sm text-anon-text flex items-center gap-2">
+                    <i class="fa-brands fa-whatsapp text-anon-accent"></i> WhatsApp Settings
+                </h3>
+                <button onclick="closeModal('whatsappSettingsModal')" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-5 overflow-y-auto max-h-[80vh] scrollbar-thin">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="bg-anon-panel/80 border border-anon-border rounded-xl p-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <p class="text-[10px] text-anon-muted font-bold uppercase tracking-wider mb-1">Linked accounts</p>
+                                <p id="wa-setting-count" class="text-3xl font-bold text-anon-accent">0</p>
+                            </div>
+                            <i class="fa-solid fa-mobile-screen-button text-2xl text-anon-accent/70"></i>
+                        </div>
+                    </div>
+                    <div class="bg-anon-panel/80 border border-anon-border rounded-xl p-4">
+                        <p class="text-[10px] text-anon-muted font-bold uppercase tracking-wider mb-1">WhatsApp connection</p>
+                        <p id="wa-setting-status" class="text-sm font-semibold text-anon-text mt-2">Checking...</p>
+                        <p class="text-[10px] text-anon-muted mt-1">Live session connectivity</p>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-xl p-4 border border-anon-border/80">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h4 class="font-semibold text-xs text-anon-text uppercase tracking-wider">Console preferences</h4>
+                            <p class="text-[10px] text-anon-muted mt-1">These settings are saved in this browser.</p>
+                        </div>
+                        <i class="fa-solid fa-sliders text-anon-accent"></i>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <label class="flex items-center justify-between gap-3 rounded-lg border border-anon-border bg-anon-panel/60 p-3 cursor-pointer">
+                            <span class="min-w-0">
+                                <span class="block text-xs font-semibold text-anon-text">Privacy mode</span>
+                                <span class="block text-[10px] text-anon-muted mt-1">Blur sensitive message previews.</span>
+                            </span>
+                            <input id="settingPrivacyMode" type="checkbox" class="h-4 w-4 accent-emerald-500" onchange="saveWhatsAppSettings()">
+                        </label>
+                        <label class="rounded-lg border border-anon-border bg-anon-panel/60 p-3">
+                            <span class="block text-xs font-semibold text-anon-text">Theme</span>
+                            <select id="settingTheme" onchange="saveWhatsAppSettings()" class="mt-2 w-full rounded-md border border-anon-border bg-anon-sidebar px-2.5 py-2 text-[11px] text-anon-text outline-none focus:border-anon-accent">
+                                <option value="dark">Dark</option>
+                                <option value="midnight">Midnight</option>
+                                <option value="emerald">Emerald</option>
+                            </select>
+                        </label>
+                        <label class="rounded-lg border border-anon-border bg-anon-panel/60 p-3 md:col-span-2">
+                            <span class="block text-xs font-semibold text-anon-text">Default sidebar page</span>
+                            <select id="settingDefaultSidebar" onchange="saveWhatsAppSettings()" class="mt-2 w-full rounded-md border border-anon-border bg-anon-sidebar px-2.5 py-2 text-[11px] text-anon-text outline-none focus:border-anon-accent">
+                                <option value="all">Chats</option>
+                                <option value="group">Groups</option>
+                                <option value="status">Updates</option>
+                                <option value="private">Direct</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-xl p-4 border border-anon-accent/20">
+                    <div class="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                            <h4 class="font-semibold text-xs text-anon-text uppercase tracking-wider">Current WhatsApp account</h4>
+                            <p class="text-[10px] text-anon-muted mt-1">Only your current bot account is shown here.</p>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button onclick="fetchHealth()" class="text-xs bg-anon-panel hover:bg-anon-panelHover px-3 py-1.5 rounded-lg border border-anon-border transition-colors flex items-center gap-1.5 text-anon-text">
+                                <i class="fa-solid fa-arrows-rotate text-[10px]"></i> Refresh
+                            </button>
+                            <button onclick="closeModal('whatsappSettingsModal'); openModal('pairModal')" class="text-xs bg-anon-accent/15 hover:bg-anon-accent/25 px-3 py-1.5 rounded-lg border border-anon-accent/30 transition-colors flex items-center gap-1.5 text-anon-accent">
+                                <i class="fa-solid fa-plus text-[10px]"></i> Link device
+                            </button>
+                        </div>
+                    </div>
+                    <div id="adminSessionsList" class="space-y-2.5"></div>
+                </div>
+
+                <div class="flex items-start gap-3 rounded-xl border border-anon-border bg-anon-panel/50 p-4">
+                    <i class="fa-solid fa-shield-halved text-anon-accent mt-0.5"></i>
+                    <div>
+                        <p class="text-xs font-semibold text-anon-text">Session privacy</p>
+                        <p class="text-[10px] text-anon-muted leading-relaxed mt-1">Your linked WhatsApp sessions remain managed by the bot. Use Logout to disconnect a device or Link device to add another account.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pairModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4 backdrop-blur-md transition-all duration-200">
+        <div class="glass-modal max-w-md w-full rounded-2xl shadow-2xl overflow-hidden border border-anon-border animate-pop-in">
+            <div class="p-5 bg-anon-sidebar border-b border-anon-border flex justify-between items-center">
+                <h3 class="font-bold text-sm text-anon-text flex items-center gap-2">
+                    <i class="fa-solid fa-qrcode text-anon-accent"></i> Pair New WhatsApp Account
+                </h3>
+                <button onclick="closeModal('pairModal')" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+            
+            <div class="p-6">
+                <p class="text-xs text-anon-muted leading-relaxed mb-5">
+                    Enter the target phone number with full international country code (e.g., 254712345678 or 14155552671) to generate a WhatsApp pairing code.
+                </p>
+                
+                <form onsubmit="handleAdminPair(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5 ml-1">Phone Number</label>
+                        <input id="phone" placeholder="254712345678" required
+                            class="w-full bg-anon-panel border border-anon-border rounded-lg px-4 py-3 text-sm outline-none focus:border-anon-accent focus:ring-1 focus:ring-anon-accent transition-all text-anon-text placeholder-anon-muted/50 font-mono">
+                    </div>
+                    <button id="pairBtn" type="submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold py-3.5 rounded-lg text-sm transition-all transform active:scale-[0.99] shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-link"></i> Generate Pairing Code
+                    </button>
+                </form>
+
+                <div id="pairResult" class="hidden mt-5 p-5 bg-anon-panel border border-anon-accent/30 rounded-xl text-center space-y-2">
+                    <p class="text-xs text-anon-muted">Enter this code in WhatsApp &gt; Linked Devices &gt; Link with phone number</p>
+                    <div class="flex items-center justify-center gap-3 pt-2">
+                        <p id="pairCode" class="text-3xl font-mono font-bold text-anon-accent tracking-widest select-all"></p>
+                        <button onclick="copyPairCode()" class="p-2 text-anon-muted hover:text-anon-accent transition-colors" title="Copy Code">
+                            <i class="fa-solid fa-copy text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="pairError" class="hidden mt-5 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-start gap-3 text-rose-400 text-xs">
+                    <i class="fa-solid fa-circle-exclamation text-sm mt-0.5"></i>
+                    <p id="pairErrorMsg" class="flex-1 leading-relaxed"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalOverlay" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4 backdrop-blur-md">
+        <div class="glass-modal max-w-sm w-full rounded-2xl p-6 border border-anon-border shadow-2xl animate-pop-in">
+            <h3 id="modalTitle" class="font-bold text-base text-anon-text">Logout Session</h3>
+            <p id="modalMessage" class="text-xs text-anon-muted mt-2 leading-relaxed"></p>
+            <div class="flex justify-end gap-2.5 mt-6">
+                <button onclick="closeModal('modalOverlay')" class="px-4 py-2 bg-anon-panel hover:bg-anon-panelHover border border-anon-border rounded-lg text-xs font-semibold transition-colors text-anon-text">
+                    Cancel
+                </button>
+                <button id="modalConfirmBtn" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition-colors">
+                    Confirm Logout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reactionModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="w-full max-w-md max-h-[80vh] bg-anon-sidebar border border-anon-border rounded-2xl shadow-2xl overflow-hidden animate-pop-in" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between p-4 border-b border-anon-border">
+                <h3 id="reactionModalTitle" class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-face-smile text-anon-accent"></i> Reactions
+                </h3>
+                <button onclick="closeReactionModal()" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div id="reactionModalContent" class="p-4 space-y-2.5 overflow-y-auto max-h-[65vh] scrollbar-thin">
+            </div>
+        </div>
+    </div>
+<!-- 
+    <div id="statusDayModal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-md items-center justify-center p-4">
+        <div class="w-full max-w-lg max-h-[85vh] bg-anon-sidebar border border-anon-border rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-pop-in">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-anon-border">
+                <div>
+                    <div class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-bullhorn text-anon-accent"></i> WhatsApp Status Story
+                    </div>
+                    <div id="statusDayModalDate" class="text-[10px] text-anon-muted mt-0.5 font-mono"></div>
+                </div>
+
+                <button onclick="closeStatusDayModal()" class="w-8 h-8 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div id="statusDayModalContent" class="p-5 overflow-y-auto max-h-[70vh] space-y-3 scrollbar-thin"></div>
+        </div>
+    </div> -->
+
+    <div id="avatarModal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-black/90 backdrop-blur-md p-3 sm:p-6" onclick="if (event.target === this) closeAvatarModal()">
+        <div id="avatarModalPanel" class="relative flex h-full max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-2xl animate-pop-in" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between gap-3 border-b border-white/10 bg-slate-950/95 px-4 py-3 sm:px-5">
+                <div class="min-w-0">
+                    <div id="avatarModalTitle" class="truncate text-sm font-bold text-white">Profile Picture</div>
+                    <div id="avatarModalMeta" class="truncate text-[10px] font-mono text-slate-400"></div>
+                </div>
+                <div class="flex items-center gap-1">
+                    <a id="avatarModalOpenLink" href="#" target="_blank" rel="noopener noreferrer" class="hidden h-9 w-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white" title="Open original image">
+                        <i class="fa-solid fa-arrow-up-right-from-square text-sm"></i>
+                    </a>
+                    <button type="button" onclick="closeAvatarModal()" class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white" title="Close">
+                        <i class="fa-solid fa-xmark text-base"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="relative flex min-h-0 flex-1 items-center justify-center bg-black/50 p-3 sm:p-8">
+                <div id="avatarModalLoading" class="flex flex-col items-center gap-3 text-slate-400">
+                    <i class="fa-solid fa-circle-notch fa-spin text-2xl text-anon-accent"></i>
+                    <span class="text-xs">Loading full-resolution image…</span>
+                </div>
+                <img id="avatarModalImage" class="hidden max-h-full max-w-full rounded-xl object-contain shadow-2xl" alt="Full-resolution profile picture">
+                <div id="avatarModalEmpty" class="hidden flex-col items-center gap-3 text-center text-slate-400">
+                    <i class="fa-regular fa-image text-4xl text-slate-600"></i>
+                    <span class="text-xs">Full-resolution profile picture unavailable.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="messageContextMenu" class="context-menu fixed z-[95] hidden rounded-xl border border-slate-700/80 bg-slate-900/95 p-2.5 backdrop-blur-xl">
+        <div class="flex items-center justify-between gap-1 px-1 pb-2">
+            <button type="button" class="context-menu-action !w-auto !p-2" onclick="handleMessageAction('reply')" title="Reply"><i class="fa-solid fa-reply"></i></button>
+            <button type="button" class="context-menu-action !w-auto !p-2" onclick="handleMessageAction('info')" title="Message Info"><i class="fa-solid fa-circle-info"></i></button>
+            <button type="button" class="context-menu-action !w-auto !p-2" onclick="handleMessageAction('forward')" title="Forward Message"><i class="fa-solid fa-share"></i></button>
+        </div>
+        <div class="quick-reactions mb-2">
+            <button type="button" class="quick-reaction" onclick="handleMessageAction('react', '❤️')" title="React with heart">❤️</button>
+            <button type="button" class="quick-reaction" onclick="handleMessageAction('react', '👍')" title="React with thumbs up">👍</button>
+            <button type="button" class="quick-reaction" onclick="handleMessageAction('react', '😂')" title="React with laughing">😂</button>
+            <button type="button" class="quick-reaction" onclick="handleMessageAction('react', '🔥')" title="React with fire">🔥</button>
+            <button type="button" class="quick-reaction" onclick="handleMessageAction('react', '😮')" title="React with surprise">😮</button>
+        </div>
+        <div class="border-t border-slate-700/70 pt-1">
+            <button type="button" class="context-menu-action" onclick="handleMessageAction('reply')"><i class="fa-solid fa-reply"></i><span>Reply</span></button>
+            <button type="button" class="context-menu-action" onclick="handleMessageAction('forward')"><i class="fa-solid fa-share"></i><span>Forward Message</span></button>
+            <button type="button" class="context-menu-action" onclick="handleMessageAction('pin')"><i class="fa-solid fa-thumbtack"></i><span>Pin Message</span></button>
+            <button type="button" class="context-menu-action" onclick="handleMessageAction('info')"><i class="fa-solid fa-circle-info"></i><span>Message Info</span></button>
+        </div>
+    </div>
+
+    <div id="chatContextMenu" class="context-menu fixed z-[95] hidden rounded-xl border border-emerald-400/70 bg-black/95 p-3 backdrop-blur-xl">
+        <button type="button" class="context-menu-action" onclick="handleChatAction('close')"><i class="fa-solid fa-xmark"></i><span>Close Chat</span></button>
+        <button type="button" class="context-menu-action" onclick="handleChatAction('info')"><i class="fa-solid fa-circle-user"></i><span>User Info</span></button>
+    </div>
+
+    <div id="messageInfoModal" class="fixed inset-0 z-[96] hidden items-center justify-center bg-black/80 backdrop-blur-md p-4" onclick="if (event.target === this) closeMessageInfoModal()">
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-anon-border bg-anon-sidebar shadow-2xl animate-pop-in" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between border-b border-anon-border px-5 py-4">
+                <h3 id="messageInfoTitle" class="text-sm font-bold text-slate-100"><i class="fa-solid fa-circle-info mr-2 text-anon-accent"></i>Message Info</h3>
+                <button type="button" onclick="closeMessageInfoModal()" class="flex h-8 w-8 items-center justify-center rounded-lg text-anon-muted hover:bg-anon-panel hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="messageInfoContent" class="space-y-3 p-5"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] translate-y-20 opacity-0 transition-all pointer-events-none duration-300">
+        <div class="glass-card px-5 py-3 rounded-full flex items-center gap-3 shadow-2xl border border-anon-accent/30 bg-slate-900/90">
+            <i id="toastIcon" class="fa-solid fa-circle-check text-anon-accent"></i>
+            <span id="toastMsg" class="text-xs font-semibold text-anon-text"></span>
+        </div>
+    </div>
+
+    <div id="statusDayModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 backdrop-blur-md">
+        <div class="relative w-full max-w-md h-full max-h-[85vh] bg-slate-950 sm:rounded-2xl flex flex-col justify-between overflow-hidden border border-slate-800 shadow-2xl select-none">
+            
+            <div class="absolute top-0 inset-x-0 z-20 p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent space-y-3">
+                <div id="statusProgressContainer" class="flex gap-1.5 w-full"></div>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <img id="statusModalAvatar" class="w-9 h-9 rounded-full object-cover border border-white/20">
+                        <div>
+                            <div id="statusModalUser" class="text-xs font-bold text-white leading-tight"></div>
+                            <div id="statusModalTime" class="text-[10px] text-slate-300 font-mono"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button id="statusPauseBtn" onclick="toggleStatusPause()" class="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10" title="Pause status">
+                            <i class="fa-solid fa-pause text-sm"></i>
+                        </button>
+                        <button onclick="closeStatusDayModal()" class="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10">
+                            <i class="fa-solid fa-xmark text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+    
+            <div class="absolute inset-0 z-10 flex">
+                <div onclick="prevStatusSegment()" class="w-1/3 h-full cursor-pointer"></div>
+                <div onclick="nextStatusSegment()" class="w-2/3 h-full cursor-pointer"></div>
+            </div>
+    
+            <div id="statusDayModalContent" class="w-full h-full flex items-center justify-center p-4"></div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let conversations = [];
+        let activeThread = null;
+        let currentFilter = "all";
+        let replyTarget = null;
+        let selectedAttachment = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordingStartedAt = 0;
+        let recordingTimer = null;
+        let composerBusy = false;
+        let avatarModalRequest = 0;
+        let activeContextMessage = null;
+        let contextMenusBound = false;
+        const WHATSAPP_SETTINGS_KEY = "mybot.whatsappSettings";
+        const defaultWhatsAppSettings = {
+            privacyMode: false,
+            theme: "dark",
+            defaultSidebar: "all"
+        };
+        
+        function el(id) { return document.getElementById(id); }
+        function escapeHtml(v) { return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
+        function escapeAttr(v) { return escapeHtml(v).replace(/\\/g,"\\\\"); }
+        
+        function isOutgoingMessage(value) {
+            return value === 1 ||
+                value === true ||
+                String(value).toLowerCase() === "1" ||
+                String(value).toLowerCase() === "true";
+        }
+
+        function getConversationTitle(c) {
+            if (!c) return "Unknown Contact";
+            if (c.jid === "status@broadcast") return "WhatsApp Status Broadcasts";
+            if (c.jid?.endsWith("@newsletter")) return c.channel_name || c.subject || c.push_name || "WhatsApp Channel";
+            if (c.jid?.endsWith("@g.us")) return c.group_name || c.chat_name || c.jid;
+            return c.chat_name || c.jid || "Unknown User";
+        }
+        
+        function readWhatsAppSettings() {
+            try {
+                return {
+                    ...defaultWhatsAppSettings,
+                    ...JSON.parse(localStorage.getItem(WHATSAPP_SETTINGS_KEY) || "{}")
+                };
+            } catch {
+                return { ...defaultWhatsAppSettings };
+            }
+        }
+
+        function applyWhatsAppSettings(settings) {
+            const theme = ["dark", "midnight", "emerald"].includes(settings.theme)
+                ? settings.theme
+                : "dark";
+            document.body.classList.toggle("privacy-mode", Boolean(settings.privacyMode));
+            document.body.classList.remove("theme-dark", "theme-midnight", "theme-emerald");
+            document.body.classList.add(`theme-${theme}`);
+        }
+
+        function loadWhatsAppSettings() {
+            const settings = readWhatsAppSettings();
+            const privacy = el("settingPrivacyMode");
+            const theme = el("settingTheme");
+            const sidebar = el("settingDefaultSidebar");
+            if (privacy) privacy.checked = Boolean(settings.privacyMode);
+            if (theme) theme.value = settings.theme;
+            if (sidebar) sidebar.value = settings.defaultSidebar;
+            applyWhatsAppSettings(settings);
+            if (["all", "group", "status", "private"].includes(settings.defaultSidebar))
+                setFilter(settings.defaultSidebar);
+        }
+
+        function saveWhatsAppSettings() {
+            const settings = {
+                privacyMode: Boolean(el("settingPrivacyMode")?.checked),
+                theme: el("settingTheme")?.value || "dark",
+                defaultSidebar: el("settingDefaultSidebar")?.value || "all"
+            };
+            localStorage.setItem(WHATSAPP_SETTINGS_KEY, JSON.stringify(settings));
+            applyWhatsAppSettings(settings);
+            if (["all", "group", "status", "private"].includes(settings.defaultSidebar))
+                setFilter(settings.defaultSidebar);
+            showToast("WhatsApp settings saved", "success");
+        }
+
+        async function openAvatarModal(data, event) {
+            event?.stopPropagation?.();
+
+            const modal = el("avatarModal");
+            const image = el("avatarModalImage");
+            const loading = el("avatarModalLoading");
+            const empty = el("avatarModalEmpty");
+            const link = el("avatarModalOpenLink");
+            if (!modal || !image || !loading || !empty) return;
+
+            const requestId = ++avatarModalRequest;
+            const item = typeof data === "string" ? { jid: data } : (data || {});
+            const title = item.title || item.name || "Profile Picture";
+            const session = item.session || item.session_id || "";
+            const jid = item.jid || "";
+
+            el("avatarModalTitle").innerText = title;
+            el("avatarModalMeta").innerText = jid;
+            image.removeAttribute("src");
+            image.classList.add("hidden");
+            loading.classList.remove("hidden");
+            loading.classList.add("flex");
+            empty.classList.add("hidden");
+            empty.classList.remove("flex");
+            link?.classList.add("hidden");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+
+            let fullUrl = "";
+            if (session && jid) {
+                try {
+                    const response = await fetch(`/api/profile-picture?session=${encodeURIComponent(session)}&jid=${encodeURIComponent(jid)}`);
+                    if (response.ok) {
+                        const result = await response.json();
+                        fullUrl = result.url || "";
+                    }
+                } catch {}
+            }
+
+            if (requestId !== avatarModalRequest) return;
+
+            const source = fullUrl || item.preview || "";
+            if (!source) {
+                loading.classList.add("hidden");
+                loading.classList.remove("flex");
+                empty.classList.remove("hidden");
+                empty.classList.add("flex");
+                return;
+            }
+
+            image.onload = () => {
+                if (requestId !== avatarModalRequest) return;
+                loading.classList.add("hidden");
+                loading.classList.remove("flex");
+                image.classList.remove("hidden");
+                if (link) {
+                    link.href = fullUrl || source;
+                    link.classList.remove("hidden");
+                    link.classList.add("flex");
+                }
+            };
+            image.onerror = () => {
+                if (requestId !== avatarModalRequest) return;
+                loading.classList.add("hidden");
+                loading.classList.remove("flex");
+                image.classList.add("hidden");
+                empty.classList.remove("hidden");
+                empty.classList.add("flex");
+            };
+            image.src = source;
+        }
+
+        function closeAvatarModal() {
+            avatarModalRequest++;
+            const modal = el("avatarModal");
+            const image = el("avatarModalImage");
+            if (modal) {
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+            }
+            if (image) {
+                image.onload = null;
+                image.onerror = null;
+                image.removeAttribute("src");
+            }
+        }
+
+        function formatChatTime(t) {
+            if (!t) return "";
+            const d = new Date(Number(t) * 1000);
+            const n = new Date();
+            const days = Math.floor((n - d) / 86400000);
+            if (isNaN(d.getTime())) return "";
+            if (days === 0) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            if (days === 1) return "Yesterday";
+            if (days < 7) return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
+            return d.toLocaleDateString([], { month: "short", day: "numeric" });
+        }
+        
+        function setFilter(type) {
+            currentFilter = type;
+            document.querySelectorAll(".nav-tab").forEach(t => {
+                t.className = "nav-tab flex flex-col items-center justify-center flex-1 h-full text-anon-muted border-t-2 border-transparent hover:text-anon-text transition-all py-1";
+            });
+            const tab = el("nav-" + type);
+            if (tab) {
+                tab.className = "nav-tab flex flex-col items-center justify-center flex-1 h-full text-anon-accent border-t-2 border-anon-accent transition-all py-1";
+            }
+            el("sectionHeaderTitle").innerText = {
+                all: "ACTIVE THREADS",
+                group: "GROUP CHATS",
+                status: "STATUS BROADCASTS",
+                private: "DIRECT MESSAGES"
+            }[type] || "ACTIVE THREADS";
+            renderConversationsList();
+        }
+        
+        function clearSearch() {
+            el("convSearch").value = "";
+            el("searchClearBtn").classList.add("hidden");
+            renderConversationsList();
+        }
+        
+        function checkAuth() {
+            if (sessionStorage.getItem("adminAuth") !== "true") {
+                el("loginGate").classList.remove("hidden");
+                el("adminDashboard").classList.add("hidden");
+                return;
+            }
+            el("loginGate").classList.add("hidden");
+            el("unauthorizedScreen").classList.add("hidden");
+            el("adminDashboard").classList.remove("hidden");
+            initAdminConsole();
+        }
+        
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = el("adminEmail").value.trim();
+            const password = el("adminPassword").value.trim();
+            try {
+                const r = await fetch("/api/admin/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password })
+                });
+                const d = await r.json();
+                if (r.ok && d.success) {
+                    sessionStorage.setItem("adminAuth", "true");
+                    checkAuth();
+                    return;
+                }
+                el("loginGate").classList.add("hidden");
+                el("unauthorizedScreen").classList.remove("hidden");
+                el("unauthorizedMsg").innerText = d.error || "Invalid administrator credentials provided.";
+            } catch {
+                sessionStorage.setItem("adminAuth", "true");
+                checkAuth();
+            }
+        }
+        
+        function retryLogin() {
+            el("unauthorizedScreen").classList.add("hidden");
+            el("loginGate").classList.remove("hidden");
+            el("adminPassword").value = "";
+        }
+        
+        function logoutAdmin() {
+            sessionStorage.removeItem("adminAuth");
+            location.reload();
+        }
+        
+        function initAdminConsole() {
+            const input = el("msg-input");
+            input?.addEventListener("keydown", handleComposerKeydown);
+            input?.addEventListener("input", () => {
+                autoResizeComposer();
+                updateComposerState();
+            });
+            updateComposerState();
+            loadWhatsAppSettings();
+            bindContextMenuListeners();
+
+            if (typeof io !== "undefined") {
+                try {
+                    socket = io();
+                    socket.on("connect", () => {
+                        el("socket-dot").className = "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-anon-sidebar glow-active";
+                        el("socket-text").innerText = "Connected";
+                        fetchHealth();
+                        fetchConversations();
+                    });
+                    socket.on("disconnect", () => {
+                        el("socket-dot").className = "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-500 border-2 border-anon-sidebar animate-pulse";
+                        el("socket-text").innerText = "Reconnecting...";
+                    });
+                    socket.on("sessions", renderAdminSessions);
+                    socket.on("message", m => {
+                        fetchConversations();
+                        if (activeThread && m.conversation_key === activeThread.conversation_key) {
+                            openConversation(activeThread.conversation_key);
+                        }
+                    });
+                } catch {
+                    el("socket-text").innerText = "Standalone Preview";
+                }
+            } else {
+                el("socket-text").innerText = "Preview Mode";
+            }
+            
+            fetchConversations();
+            fetchHealth();
+        }
+        
+        async function fetchConversations() {
+            try {
+                const r = await fetch("/api/conversations");
+                if (!r.ok) throw Error();
+                const d = await r.json();
+                conversations = Array.isArray(d.conversations) ? d.conversations : [];
+            } catch {
+            }
+            renderConversationsList();
+        }
+        
+        function renderConversationsList() {
+            const c = el("conversationsList");
+            const search = el("convSearch").value.toLowerCase();
+            el("searchClearBtn").classList.toggle("hidden", !search);
+        
+            const filtered = conversations.filter(x => {
+                const title = getConversationTitle(x);
+                const target = [title, x.conversation_key, x.last_message, x.session_phone].filter(Boolean).join(" ").toLowerCase();
+                const jid = x.jid || x.conversation_key || "";
+                let f = true;
+                if (currentFilter === "group") f = jid.endsWith("@g.us");
+                else if (currentFilter === "status") f = jid.includes("status@broadcast");
+                else if (currentFilter === "private") f = !jid.endsWith("@g.us") && !jid.includes("status@broadcast") && !jid.endsWith("@newsletter");
+                return target.includes(search) && f;
+            }).sort((a,b) => Number(b.last_time || 0) - Number(a.last_time || 0));
+        
+            el("onlineCountBadge").innerText = `${filtered.length} Active`;
+        
+            if (!filtered.length) {
+                c.innerHTML = `
+                    <div class="text-center py-12 text-anon-muted space-y-2">
+                        <i class="fa-solid fa-comments-question text-3xl opacity-30"></i>
+                        <p class="text-xs">No conversations matching current filter</p>
+                    </div>`;
+                return;
+            }
+        
+            c.innerHTML = filtered.map(x => {
+                const key = x.conversation_key;
+                const active = activeThread?.conversation_key === key;
+                const title = getConversationTitle(x);
+                const msg = x.last_message || x.reaction || "Media / Attachment";
+                const lastMessageIsMine = isOutgoingMessage(x.last_from_me);
+                const isGroup = x.jid?.endsWith("@g.us");
+                const isStatus = x.jid?.includes("status@broadcast");
+                const previewPrefix = isStatus
+                    ? (x.status_sender_name || x.sender_name || x.push_name || "Contact")
+                    : lastMessageIsMine
+                    ? "You"
+                    : isGroup
+                    ? (x.last_sender_name || x.push_name || x.sender_name || x.other_user_name || "Participant")
+                    : title;
+                const isChannel = x.jid?.endsWith("@newsletter");
+        
+                let iconClass = "fa-user";
+                if (isGroup) iconClass = "fa-users";
+                if (isStatus) iconClass = "fa-bullhorn";
+                if (isChannel) iconClass = "fa-newspaper";
+        
+                const imageSrc = isStatus
+                    ? ""
+                    : x.img || x.avatar || x.profile_pic || x.channel_image;
+                const avatarPayload = escapeAttr(JSON.stringify({
+                    session: x.session_id || x.session_phone || "",
+                    jid: x.jid || "",
+                    title
+                }));
+                const avatarHtml = imageSrc
+                    ? `<img src="${escapeAttr(imageSrc)}" class="w-11 h-11 rounded-xl object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" onclick='openAvatarModal(${avatarPayload}, event)' onerror="this.onerror=null; this.parentNode.innerHTML='<div class=\\'w-11 h-11 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-anon-border flex items-center justify-center text-anon-accent shadow-inner\\'><i class=\\'fa-solid ${iconClass} text-lg\\'></i></div>';">`
+                    : `<div class="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-anon-border flex items-center justify-center text-anon-accent shadow-inner">
+                        <i class="fa-solid ${iconClass} text-lg"></i>
+                       </div>`;
+        
+                return `
+                    <div onclick="openConversation('${escapeAttr(key)}')" class="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all relative group ${active ? "bg-anon-panel border border-anon-accent/40 shadow-lg shadow-emerald-950/20" : "hover:bg-anon-panel/60 border border-transparent"}">
+                        <div class="relative shrink-0">
+                            ${avatarHtml}
+                            <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-anon-sidebar"></span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-baseline gap-2 mb-1">
+                                <h3 class="text-xs font-bold text-anon-text truncate">${escapeHtml(title)}</h3>
+                                <span class="text-[10px] text-anon-muted shrink-0 font-mono">${formatChatTime(x.last_time)}</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 text-[11px] text-anon-muted truncate">
+                                <i class="fa-solid ${lastMessageIsMine ? "fa-check-double text-anon-accent" : "fa-message text-anon-muted"} text-[10px]"></i>
+                                <span class="truncate privacy-sensitive">${escapeHtml(previewPrefix)}: ${escapeHtml(msg)}</span>
+                            </div>
+                        </div>
+                    </div>`;
+            }).join("");
+        }
+        
+        async function openConversation(key) {
+            if (!key) return;
+            let conversation = conversations.find(c => c.conversation_key === key) || { conversation_key: key, push_name: key, jid: key };
+
+            if (activeThread?.conversation_key !== key)
+                clearReplyTarget();
+
+            activeThread = {
+                conversation_key: key,
+                readOnly: conversation.jid === "status@broadcast"
+            };
+            updateComposerState();
+        
+            if (window.innerWidth < 768) {
+                el("sidebar").classList.add("hidden");
+                el("mainChatArea").classList.remove("hidden");
+                el("mainChatArea").classList.add("flex");
+            }
+        
+            renderConversationsList();
+            el("emptyChatState").classList.add("hidden");
+            el("activeChatView").classList.remove("hidden");
+            el("activeChatView").classList.add("flex");
+            
+            el("chatTitle").innerText = getConversationTitle(conversation);
+            el("chatSubtitle").innerText = conversation.jid || "Online";
+            el("chatSessionBadge").innerText = `Session: ${conversation.session_phone || "Primary Bot"}`;
+        
+            const isGroup = conversation.jid?.endsWith("@g.us");
+            const isStatus = conversation.jid?.includes("status@broadcast");
+            const isChannel = conversation.jid?.endsWith("@newsletter");
+            const iconClass = isGroup ? "fa-users" : isStatus ? "fa-bullhorn" : isChannel ? "fa-newspaper" : "fa-user";
+            
+            const imageSrc = isStatus
+                ? ""
+                : conversation.img || conversation.avatar || conversation.profile_pic || conversation.channel_image;
+            const headerAvatarPayload = escapeAttr(JSON.stringify({
+                session: conversation.session_id || conversation.session_phone || "",
+                jid: conversation.jid || "",
+                title: getConversationTitle(conversation)
+            }));
+            const headerIconEl = el("chatHeaderIcon");
+            if (imageSrc && headerIconEl?.parentElement) {
+                headerIconEl.parentElement.innerHTML = `<img src="${escapeAttr(imageSrc)}" class="w-10 h-10 rounded-full object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" id="chatHeaderIcon" onclick='openAvatarModal(${headerAvatarPayload}, event)'>`;
+            } else if (headerIconEl) {
+                headerIconEl.className = `fa-solid ${iconClass} text-sm`;
+            }
+        
+            const container = el("chatMessagesContainer");
+            container.innerHTML = `
+                <div class="h-full flex flex-col items-center justify-center text-anon-muted space-y-2">
+                    <i class="fa-solid fa-circle-notch fa-spin text-2xl text-anon-accent"></i>
+                    <span class="text-xs">Fetching encrypted message logs...</span>
+                </div>`;
+        
+            try {
+                const r = await fetch(`/api/conversations/${encodeURIComponent(key)}`);
+                if (!r.ok) throw Error();
+                const d = await r.json();
+
+                if (d.chat_name) {
+                    conversation = {
+                        ...conversation,
+                        chat_name: d.chat_name
+                    };
+                    el("chatTitle").innerText = d.chat_name;
+
+                    const namedIndex = conversations.findIndex(
+                        item => item.conversation_key === key
+                    );
+
+                    if (namedIndex >= 0)
+                        conversations[namedIndex].chat_name = d.chat_name;
+                }
+
+                const refreshedAvatar = isStatus
+                    ? ""
+                    : d.chat_avatar ||
+                      d.avatar ||
+                      d.sender_avatar ||
+                      "";
+
+                if (refreshedAvatar) {
+                    const header = el("chatHeaderIcon");
+
+                    if (header?.parentElement) {
+                        const refreshedAvatarPayload = escapeAttr(JSON.stringify({
+                            session: conversation.session_id || conversation.session_phone || "",
+                            jid: conversation.jid || "",
+                            title: getConversationTitle(conversation)
+                        }));
+                        header.parentElement.innerHTML = `<img src="${escapeAttr(refreshedAvatar)}" class="w-10 h-10 rounded-full object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" id="chatHeaderIcon" onclick='openAvatarModal(${refreshedAvatarPayload}, event)'>`;
+                    }
+
+                    const conversationIndex = conversations.findIndex(
+                        item => item.conversation_key === key
+                    );
+
+                    if (conversationIndex >= 0) {
+                        conversations[conversationIndex] = {
+                            ...conversations[conversationIndex],
+                            avatar: d.avatar || refreshedAvatar,
+                            chat_avatar: d.chat_avatar || refreshedAvatar,
+                            sender_avatar: d.sender_avatar || conversations[conversationIndex].sender_avatar
+                        };
+                    }
+                }
+
+                renderConversationsList();
+                renderChatThread(d.messages || []);
+            } catch {
+                const now = Math.floor(Date.now() / 1000);
+                const mockMsgs = [
+                    { msg_id: "m1", from_me: 0, sender_name: conversation.push_name || "User", text: "Hello Admin, checking session status.", created_at: now - 300 },
+                    { msg_id: "m2", from_me: 1, sender_name: "Admin Bot", text: "Session is fully active and listening to events.", created_at: now - 240 },
+                    { msg_id: "m3", from_me: 0, sender_name: conversation.push_name || "User", text: "Awesome! High speed response.", created_at: now - 120 }
+                ];
+                renderChatThread(mockMsgs);
+            }
+        }
+        
+        function closeMobileChat() {
+            activeThread = null;
+            el("sidebar").classList.remove("hidden");
+            el("mainChatArea").classList.add("hidden");
+            el("mainChatArea").classList.remove("flex");
+            renderConversationsList();
+        }
+        
+        function renderNormalMessages(messages) {
+            const reactionsMap = new Map();
+        
+            messages.forEach(m => {
+                if (m.reaction_msg_id && m.reaction) {
+                    if (!reactionsMap.has(m.reaction_msg_id)) reactionsMap.set(m.reaction_msg_id, []);
+                    reactionsMap.get(m.reaction_msg_id).push(m);
+                }
+            });
+        
+            return messages.filter(m => !m.reaction_msg_id).map(m => {
+                const self = Number(m.from_me) === 1;
+                const sender = m.push_name || m.sender_name || m.sender || "Contact";
+                const time = m.created_at
+                    ? new Date(Number(m.created_at) * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    : "";
+                
+                const quoted = m.quoted_text
+                    ? `<div class="mb-2 px-3 py-1.5 rounded-md bg-black/30 border-l-2 border-anon-accent">
+                        <div class="text-[9px] font-bold text-anon-accent truncate">${escapeHtml(m.quoted_sender || "Replied Message")}</div>
+                        <div class="text-[10px] text-slate-300 line-clamp-2">${escapeHtml(m.quoted_text)}</div>
+                       </div>`
+                    : "";
+        
+                let media = "";
+                if (m.media_path) {
+                    if (m.media_type === "image" || m.mime_type?.startsWith("image/")) {
+                        media = `<div class="mb-1.5 overflow-hidden rounded-lg border border-white/10">
+                            <img onerror="this.src='/errors/message-error.png'"  src="${escapeHtml(m.media_path)}" class="w-full  max-h-60 object-cover cursor-pointer hover:scale-105 transition-transform" ${m.media_type == 'sticker' ? 'style="max-width:120px; max-height:120px"' : ''} onerror="this.onclick='showToast();return;'" onclick="openMediaModal('${escapeHtml(m.media_path)}','image')"  ${m.media_type == 'sticker' ? 'onmouseover="this.src = this.src"':''}>
+                        </div>`;
+                    
+                    } else if (m.media_type === "video" || m.mime_type?.startsWith("video/")) {
+                        media = `<div class="mb-1.5 overflow-hidden rounded-lg border border-white/10 relative cursor-pointer group" onclick="openMediaModal('${escapeHtml(m.media_path)}','video','${escapeHtml(m.mime_type || "video/mp4")}')">
+                            <video class="w-full max-h-60 bg-black/40 pointer-events-none"><source src="${escapeHtml(m.media_path)}"></video>
+                            <div class="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-all">
+                                <i class="fa-solid fa-play text-white text-2xl drop-shadow-md"></i>
+                            </div>
+                        </div>`;
+                    } else if (m.media_type === "document" || m.mime_type?.startsWith("application/")) {
+                        media = `<a href="${escapeHtml(m.media_path)}" target="_blank" download class="flex items-center gap-2.5 p-2.5 mb-1.5 bg-black/30 rounded-lg border border-slate-700/50 hover:border-anon-accent transition-colors">
+                            <i class="fa-solid fa-file-lines text-anon-accent text-lg"></i>
+                            <span class="text-xs text-slate-200 truncate flex-1 font-mono">${escapeHtml(m.file_name || "Document")}</span>
+                            <i class="fa-solid fa-download text-xs text-slate-400"></i>
+                        </a>`;
+                    }
+                }
+        
+                const list = reactionsMap.get(m.msg_id) || [];
+                const groups = {};
+                list.forEach(r => {
+                    if (!groups[r.reaction]) groups[r.reaction] = [];
+                    groups[r.reaction].push(r);
+                });
+        
+                const reactionHtml = Object.entries(groups).map(([emoji, rList]) => {
+                    const data = JSON.stringify(rList).replace(/\\/g, "\\\\").replace(/'/g, "&#39;");
+                    return `<button onclick='openReactionModal(${data}, ${JSON.stringify(emoji)})' class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/90 border border-anon-border text-xs hover:border-anon-accent transition-all">${escapeHtml(emoji)}${rList.length > 1 ? `<span class="text-[9px] text-anon-muted">${rList.length}</span>` : ""}</button>`;
+                }).join("");
+
+                const replyPayload = m.msg_id
+                    ? JSON.stringify({
+                        id: String(m.msg_id),
+                        sender,
+                        text: m.text || (m.media_type ? `[${m.media_type}]` : "Message")
+                    }).replace(/"/g, "&quot;")
+                    : "";
+
+                const replyAction = replyPayload
+                    ? `<button type="button" onclick="selectReplyMessage(${replyPayload})" class="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-anon-accent" title="Reply">
+                        <i class="fa-solid fa-reply"></i>
+                       </button>`
+                    : "";
+                const messagePayload = escapeAttr(JSON.stringify({
+                    id: m.msg_id || m.id || "",
+                    msg_id: m.msg_id || "",
+                    sender,
+                    sender_jid: m.sender || "",
+                    text: m.text || (m.media_type ? `[${m.media_type}]` : "Message"),
+                    from_me: self ? 1 : 0,
+                    created_at: m.created_at || "",
+                    jid: m.jid || "",
+                    conversation_key: m.conversation_key || activeThread?.conversation_key || "",
+                    quoted_text: m.quoted_text || ""
+                }));
+        
+                return `
+                    <div class="flex flex-col w-full ${self ? "items-end" : "items-start"}">
+                        <div class="max-w-[85%] sm:max-w-[70%]">
+                            <div class="message-bubble group px-4 py-2.5 text-xs leading-relaxed shadow-md rounded-xl ${self ? "bg-anon-msgOut text-slate-100 rounded-tr-none border border-emerald-600/30" : "bg-anon-msgIn text-slate-100 rounded-tl-none border border-slate-700/40"}" oncontextmenu='openMessageContextMenu(${messagePayload}, event); return false;'>
+                                ${!self ? `<div class="text-[10px] font-bold text-anon-accent mb-1 truncate">${escapeHtml(sender)}</div>` : ""}
+                                ${quoted}${media}
+                                ${ String(m.text).startsWith('[Video]') || String(m.text).startsWith('[Image]')  || String(m.text).startsWith('[Audio') ? "" : `<div class="break-words font-sans text-slate-100 privacy-sensitive">${renderSafeMessage(m.text)}</div>`}
+                                <div class="flex justify-end items-center gap-1.5 mt-1 text-[10px] text-slate-400 font-mono">
+                                    ${replyAction}
+                                    <span>${time}</span>
+                                    ${self ? `<i class="fa-solid fa-check-double text-anon-accent text-[10px]"></i>` : ""}
+                                </div>
+                            </div>
+                            ${reactionHtml ? `<div class="flex flex-wrap gap-1 mt-1 ${self ? "justify-end mr-1" : "ml-1"}">${reactionHtml}</div>` : ""}
+                        </div>
+                    </div>`;
+            }).join("");
+        }
+        
+        function renderChatThread(messages) {
+            const container = el("chatMessagesContainer");
+            if (!messages?.length) {
+                container.innerHTML = `<div class="mt-12 mx-auto bg-anon-panel/80 px-6 py-3 rounded-full text-center text-anon-muted text-xs border border-anon-border">No recorded logs for this conversation.</div>`;
+                return;
+            }
+        
+            const sorted = [...messages].sort((a,b) => Number(a.created_at) - Number(b.created_at));
+            const statuses = sorted.filter(m => m.jid === "status@broadcast");
+            const normal = sorted.filter(m => m.jid !== "status@broadcast");
+        
+            if (!statuses.length) {
+                container.innerHTML = renderNormalMessages(normal);
+                setTimeout(() => container.scrollTop = container.scrollHeight, 50);
+                return;
+            }
+        
+            const days = new Map();
+            statuses.forEach(s => {
+                const d = new Date(Number(s.created_at) * 1000);
+                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+                if (!days.has(key)) days.set(key, []);
+                days.get(key).push(s);
+            });
+        
+            const statusHtml = [...days.entries()].sort((a,b) => b[0].localeCompare(a[0])).map(([day, list]) => {
+                const userMap = new Map();
+                list.forEach(s => {
+                    const uid = s.sender || s.sender_jid || s.sender_name || s.push_name || "unknown";
+                    if (!userMap.has(uid)) userMap.set(uid, []);
+                    userMap.get(uid).push(s);
+                });
+        
+                // Sort users by their latest status timestamp (descending: newest first)
+                const sortedUsers = [...userMap.entries()].map(([uid, items]) => {
+                    items.sort((a,b) => Number(a.created_at) - Number(b.created_at));
+                    const latestTime = Number(items[items.length - 1].created_at || 0);
+                    return { uid, items, latestTime };
+                }).sort((a,b) => b.latestTime - a.latestTime);
+        
+                const d = new Date(Number(list[0].created_at) * 1000);
+                const label = d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+        
+                return `
+                    <div class="mb-4">
+                        <details class="group bg-anon-panel/60 border border-anon-border rounded-xl overflow-hidden shadow-md">
+                            <summary class="flex items-center justify-between p-3.5 cursor-pointer list-none select-none hover:bg-anon-panel/90 transition-colors">
+                                <div class="flex items-center gap-2.5">
+                                    <i class="fa-solid fa-circle-notch text-anon-accent text-sm"></i>
+                                    <h4 class="text-xs font-bold text-slate-100">Status Updates — <span class="font-mono text-anon-muted">${escapeHtml(label)}</span></h4>
+                                </div>
+                                <i class="fa-solid fa-chevron-down text-xs text-anon-muted group-open:rotate-180 transition-transform"></i>
+                            </summary>
+                            
+                            <div class="p-3 border-t border-anon-border/50 bg-black/20 space-y-2">
+                                ${sortedUsers.map(({ uid, items, latestTime }) => {
+                                    const senderName = items[0].sender_name || items[0].push_name || items[0].sender || uid;
+                                    const avatarPic = items[0].img || items[0].avatar || items[0].profile_pic;
+                                    const formattedTime = latestTime ? new Date(latestTime * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+                                    const payload = JSON.stringify(items).replace(/\\/g, "\\\\").replace(/'/g, "&#39;");
+                                    
+                                    return `
+                                        <div onclick='openStatusUserModal(${payload})' class="flex items-center justify-between p-2.5 rounded-lg bg-black/40 border border-slate-800 hover:border-anon-accent/50 cursor-pointer transition-all">
+                                            <div class="flex items-center gap-3 min-w-0">
+                                                <div class="relative w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-emerald-500 to-teal-300 shrink-0">
+                                                    ${avatarPic 
+                                                        ? `<img src="${escapeAttr(avatarPic)}" class="w-full h-full rounded-full object-cover border border-black">`
+                                                        : `<div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-anon-accent text-xs border border-black"><i class="fa-solid fa-user"></i></div>`
+                                                    }
+                                                </div>
+                                                <div class="min-w-0 flex-1">
+                                                    <div class="text-xs font-bold text-slate-100 truncate">${escapeHtml(senderName)}</div>
+                                                    <div class="text-[10px] text-anon-muted font-mono">${items.length} segment${items.length > 1 ? "s" : ""}</div>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-[10px] text-anon-muted font-mono">${formattedTime}</span>
+                                                <i class="fa-solid fa-chevron-right text-xs text-anon-muted"></i>
+                                            </div>
+                                        </div>`;
+                                }).join("")}
+                            </div>
+                        </details>
+                    </div>`;
+            }).join("");
+        
+            container.innerHTML = statusHtml + (normal.length ? `<div class="h-px bg-anon-border my-4"></div>${renderNormalMessages(normal)}` : "");
+            setTimeout(() => container.scrollTop = container.scrollHeight, 50);
+        }
+        
+
+        let currentStatusIndex = 0;
+        let currentStatusList = [];
+        let statusTimer = null;
+        let statusPaused = false;
+        let statusSegmentStartedAt = 0;
+        let statusRemainingMs = 0;
+        const STATUS_DURATION = 5000;
+
+
+        function updateStatusPauseButton() {
+            const button = el("statusPauseBtn");
+            const progress = document.querySelector("#statusProgressContainer .status-current-progress");
+
+            if (button) {
+                button.title = statusPaused ? "Resume status" : "Pause status";
+                button.innerHTML = statusPaused
+                    ? '<i class="fa-solid fa-play text-sm"></i>'
+                    : '<i class="fa-solid fa-pause text-sm"></i>';
+            }
+
+            if (progress)
+                progress.style.animationPlayState = statusPaused ? "paused" : "running";
+        }
+
+        function scheduleStatusAdvance() {
+            clearTimeout(statusTimer);
+            if (statusPaused || !currentStatusList.length) return;
+
+            statusSegmentStartedAt = Date.now();
+            statusTimer = setTimeout(() => {
+                statusRemainingMs = 0;
+                nextStatusSegment();
+            }, Math.max(250, statusRemainingMs || STATUS_DURATION));
+        }
+
+        function toggleStatusPause() {
+            if (!currentStatusList.length) return;
+
+            if (statusPaused) {
+                statusPaused = false;
+                scheduleStatusAdvance();
+            } else {
+                const elapsed = statusSegmentStartedAt
+                    ? Date.now() - statusSegmentStartedAt
+                    : 0;
+                statusRemainingMs = Math.max(
+                    250,
+                    (statusRemainingMs || STATUS_DURATION) - elapsed
+                );
+                statusPaused = true;
+                clearTimeout(statusTimer);
+            }
+
+            updateStatusPauseButton();
+        }
+
+        function closeStatusDayModal() {
+            clearTimeout(statusTimer);
+            statusPaused = false;
+            statusRemainingMs = 0;
+            const modal = el("statusDayModal");
+            if (modal) {
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+            }
+        }
+
+        function openStatusUserModal(statuses) {
+            if (!statuses?.length) return;
+            currentStatusList = statuses.sort((a, b) => Number(a.created_at) - Number(b.created_at));
+            currentStatusIndex = 0;
+            statusPaused = false;
+            statusRemainingMs = STATUS_DURATION;
+
+            const modal = el("statusDayModal");
+            if (modal) {
+                modal.classList.remove("hidden");
+                modal.classList.add("flex");
+            }
+
+            renderSingleStatus();
+        }
+
+        function renderSingleStatus() {
+            clearTimeout(statusTimer);
+            statusRemainingMs = STATUS_DURATION;
+
+            const modal = el("statusDayModal");
+            if (!modal) return;
+
+            const content = el("statusDayModalContent");
+            const progressContainer = el("statusProgressContainer");
+            const userLabel = el("statusModalUser");
+            const timeLabel = el("statusModalTime");
+            const avatarImg = el("statusModalAvatar");
+
+            const m = currentStatusList[currentStatusIndex];
+            if (!m) return;
+
+            const senderName = m.sender_name || m.push_name || m.sender || "Contact";
+            const time = new Date(Number(m.created_at) * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            const avatarPic = m.img || m.avatar || m.profile_pic;
+
+            if (userLabel) userLabel.textContent = senderName;
+            if (timeLabel) timeLabel.textContent = time;
+            if (avatarImg) {
+                avatarImg.src = avatarPic || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2364748b'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E";
+            }
+
+            if (progressContainer) {
+                progressContainer.innerHTML = currentStatusList.map((_, idx) => `
+                    <div class="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
+                        <div class="h-full bg-white transition-all duration-linear ${idx === currentStatusIndex ? 'animate-status-progress status-current-progress' : idx < currentStatusIndex ? 'w-full' : 'w-0'}" 
+                            style="${idx === currentStatusIndex ? `animation-duration: ${STATUS_DURATION}ms; animation-play-state: ${statusPaused ? "paused" : "running"};` : ''}"></div>
+                    </div>
+                `).join("");
+            }
+
+            updateStatusPauseButton();
+
+            if (!content) return;
+
+            let body = "";
+            if (m.media_path) {
+                if (m.media_type === "image" || m.mime_type?.startsWith("image/")) {
+                    body = `<img onerror="this.src='/errors/message-error.png'" src="${escapeHtml(m.media_path)}" class="max-w-full max-h-full object-contain">`;
+                } else if (m.media_type === "video" || m.mime_type?.startsWith("video/")) {
+                    body = `<video autoplay playsinline class="max-w-full max-h-full object-contain"><source src="${escapeHtml(m.media_path)}"></video>`;
+                }
+            } else {
+                body = `
+                    <div class="w-full h-full flex items-center justify-center p-8 text-center text-lg font-medium text-white break-words">
+                        ${parseFormattedText(m.text)}
+                    </div>`;
+            }
+
+            content.innerHTML = `
+                <div class="relative w-full h-full flex flex-col items-center justify-center">
+                    ${body}
+                    ${m.media_path && m.text ? `
+                        <div class="absolute bottom-6 inset-x-4 z-20 bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 text-xs text-white text-center break-words">
+                            ${parseFormattedText(m.text)}
+                        </div>` : ''
+                    }
+                </div>`;
+
+            scheduleStatusAdvance();
+        }
+
+        function nextStatusSegment() {
+            if (currentStatusIndex < currentStatusList.length - 1) {
+                currentStatusIndex++;
+                statusPaused = false;
+                renderSingleStatus();
+            } else {
+                closeStatusDayModal();
+            }
+        }
+
+        function prevStatusSegment() {
+            if (currentStatusIndex > 0) {
+                currentStatusIndex--;
+                statusPaused = false;
+                renderSingleStatus();
+            }
+        }
+
+       
+        function openReactionModal(reactions, emoji) {
+            const modal = el("reactionModal");
+            const content = el("reactionModalContent");
+            const title = el("reactionModalTitle");
+            if (!modal || !content) return;
+        
+            title.innerHTML = `<i class="fa-solid fa-face-smile text-anon-accent"></i> ${escapeHtml(emoji)} Reactions`;
+            content.innerHTML = reactions.map(r => {
+                const name = r.sender_name || r.push_name || r.sender || "Unknown";
+                const time = r.created_at ? new Date(Number(r.created_at) * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+                return `
+                    <div class="flex items-center gap-3 p-3 rounded-lg bg-black/30 border border-anon-border">
+                        <div class="w-9 h-9 rounded-full bg-anon-accent/10 border border-anon-accent/20 flex items-center justify-center text-anon-accent">
+                            <i class="fa-solid fa-user text-xs"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="text-xs font-bold text-slate-100 truncate">${escapeHtml(name)}</div>
+                            <div class="text-[9px] text-anon-muted font-mono truncate">${escapeHtml(r.sender || "")}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-base">${escapeHtml(r.reaction)}</div>
+                            <div class="text-[9px] text-anon-muted font-mono">${time}</div>
+                        </div>
+                    </div>`;
+            }).join("");
+        
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+        }
+        
+        function closeReactionModal() {
+            const modal = el("reactionModal");
+            if (modal) {
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+            }
+        }
+        
+ 
+        function closeStatusDayModal() {
+            clearTimeout(statusTimer);
+            statusPaused = false;
+            statusRemainingMs = 0;
+            const m = el("statusDayModal");
+            const vid = m?.querySelector("video");
+            if (vid) vid.pause();
+            if (m) {
+                m.classList.add("hidden");
+                m.classList.remove("flex");
+            }
+        }
+        
+        function openMediaModal(src, type, mimeType = "video/mp4") {
+            let modal = el("global-media-modal");
+            if (!modal) {
+                modal = document.createElement("div");
+                modal.id = "global-media-modal";
+                modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 hidden";
+                modal.onclick = e => { if (e.target === modal || e.target.id === "modal-close-btn") closeMediaModal(); };
+                modal.innerHTML = `
+                    <div class="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center justify-center animate-pop-in">
+                        <button id="modal-close-btn" class="absolute -top-10 right-0 text-white text-2xl p-2 hover:text-anon-accent transition-colors">
+                            <i class="fa-solid fa-xmark pointer-events-none"></i>
+                        </button>
+                        <div id="modal-media-container" class="w-full flex justify-center items-center overflow-hidden rounded-xl"></div>
+                    </div>`;
+                document.body.appendChild(modal);
+            }
+            const c = el("modal-media-container");
+            c.innerHTML = type === "image"
+                ? `<img src="${src}" class="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl">`
+                : `<video controls autoplay class="max-w-full max-h-[80vh] rounded-xl shadow-2xl"><source src="${src}" type="${mimeType}"></video>`;
+            modal.classList.remove("hidden");
+        }
+        
+        function closeMediaModal() {
+            const m = el("global-media-modal");
+            if (m) {
+                m.classList.add("hidden");
+                const c = el("modal-media-container");
+                const vid = c.querySelector('video')
+                if (c && vid) vid.pause();
+                if (c) c.innerHTML = "";
+            }
+        }
+        
+        function closeContextMenus() {
+            ["messageContextMenu", "chatContextMenu"].forEach(id => {
+                const menu = el(id);
+                if (menu) {
+                    menu.classList.add("hidden");
+                    menu.style.visibility = "";
+                }
+            });
+            activeContextMessage = null;
+        }
+
+        function positionContextMenu(menu, x, y) {
+            if (!menu) return;
+            closeContextMenus();
+            menu.classList.remove("hidden");
+            menu.style.visibility = "hidden";
+            menu.style.left = "0px";
+            menu.style.top = "0px";
+
+            requestAnimationFrame(() => {
+                const rect = menu.getBoundingClientRect();
+                const left = Math.max(12, Math.min(Number(x) || 12, window.innerWidth - rect.width - 12));
+                const top = Math.max(12, Math.min(Number(y) || 12, window.innerHeight - rect.height - 12));
+                menu.style.left = `${left}px`;
+                menu.style.top = `${top}px`;
+                menu.style.visibility = "visible";
+            });
+        }
+
+        function openMessageContextMenu(data, event) {
+            event?.preventDefault?.();
+            event?.stopPropagation?.();
+            positionContextMenu(el("messageContextMenu"), event?.clientX || 12, event?.clientY || 12);
+            activeContextMessage = data || null;
+        }
+
+        function openChatContextMenu(event) {
+            event?.preventDefault?.();
+            event?.stopPropagation?.();
+            positionContextMenu(el("chatContextMenu"), event?.clientX || 12, event?.clientY || 12);
+        }
+
+        function bindContextMenuListeners() {
+            if (contextMenusBound) return;
+            contextMenusBound = true;
+            document.addEventListener("click", event => {
+                if (!event.target.closest(".context-menu")) closeContextMenus();
+            });
+            document.addEventListener("keydown", event => {
+                if (event.key === "Escape") {
+                    closeContextMenus();
+                    closeMessageInfoModal();
+                    closeAvatarModal();
+                }
+            });
+            window.addEventListener("resize", closeContextMenus);
+            window.addEventListener("scroll", closeContextMenus, true);
+        }
+
+        function showMessageInfoModal(data, title = "Message Info") {
+            const modal = el("messageInfoModal");
+            const content = el("messageInfoContent");
+            const heading = el("messageInfoTitle");
+            if (!modal || !content) return;
+
+            if (heading) heading.innerHTML = `<i class="fa-solid fa-circle-info mr-2 text-anon-accent"></i>${escapeHtml(title)}`;
+            const created = data?.created_at
+                ? new Date(Number(data.created_at) * 1000).toLocaleString()
+                : "Unknown";
+            const rows = [
+                ["Sender", data?.sender || data?.sender_jid || "Unknown"],
+                ["Message ID", data?.msg_id || data?.id || "Unavailable"],
+                ["Sent", created],
+                ["Direction", isOutgoingMessage(data?.from_me) ? "Outgoing" : "Incoming"],
+                ["Conversation", data?.jid || activeThread?.conversation_key || "Unknown"]
+            ];
+            content.innerHTML = rows.map(([label, value]) => `
+                <div class="flex items-start justify-between gap-4 rounded-lg border border-anon-border bg-anon-panel/60 px-3 py-2.5">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-anon-muted">${escapeHtml(label)}</span>
+                    <span class="max-w-[65%] break-words text-right text-xs text-slate-200 privacy-sensitive">${escapeHtml(value)}</span>
+                </div>`).join("");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+        }
+
+        function closeMessageInfoModal() {
+            const modal = el("messageInfoModal");
+            if (modal) {
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+            }
+        }
+
+        function showChatInfo() {
+            const conversation = conversations.find(item => item.conversation_key === activeThread?.conversation_key) || {};
+            const modal = el("messageInfoModal");
+            const content = el("messageInfoContent");
+            const heading = el("messageInfoTitle");
+            if (!modal || !content) return;
+
+            if (heading) heading.innerHTML = `<i class="fa-solid fa-circle-user mr-2 text-anon-accent"></i>User Info`;
+            const isGroup = conversation.jid?.endsWith("@g.us");
+            const kind = isGroup ? "Group" : conversation.jid?.endsWith("@newsletter") ? "Channel" : "Contact";
+            const rows = [
+                [kind, getConversationTitle(conversation)],
+                ["WhatsApp JID", conversation.jid || "Unavailable"],
+                ["Session", conversation.session_phone || conversation.session_id || "Primary session"],
+                ["Conversation", conversation.conversation_key || activeThread?.conversation_key || "Unavailable"]
+            ];
+            content.innerHTML = rows.map(([label, value]) => `
+                <div class="flex items-start justify-between gap-4 rounded-lg border border-anon-border bg-anon-panel/60 px-3 py-2.5">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-anon-muted">${escapeHtml(label)}</span>
+                    <span class="max-w-[65%] break-words text-right text-xs text-slate-200 privacy-sensitive">${escapeHtml(value)}</span>
+                </div>`).join("");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+        }
+
+        async function handleMessageAction(action, emoji = "") {
+            const message = activeContextMessage;
+            closeContextMenus();
+            if (!message) return;
+
+            if (action === "reply") {
+                selectReplyMessage({
+                    id: message.msg_id || message.id,
+                    sender: message.sender || "Contact",
+                    text: message.text || "Message"
+                });
+                return;
+            }
+
+            if (action === "info") {
+                showMessageInfoModal(message);
+                return;
+            }
+
+            if (action === "forward") {
+                const text = message.text || "";
+                try {
+                    await navigator.clipboard?.writeText(text);
+                    showToast("Message copied for forwarding", "success");
+                } catch {
+                    showToast("Message text is ready to forward", "success");
+                }
+                return;
+            }
+
+            if (action === "pin") {
+                try {
+                    const response = await fetch("/api/messages/pin", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            conversation_key: activeThread?.conversation_key,
+                            msg_id: message.msg_id || message.id
+                        })
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (!response.ok) throw Error(result.error || "Pin failed");
+                    showToast("Message pinned", "success");
+                } catch (error) {
+                    showToast(error.message || "Message could not be pinned", "error");
+                }
+                return;
+            }
+
+            if (action === "react") {
+                try {
+                    const response = await fetch("/api/messages/react", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            conversation_key: activeThread?.conversation_key,
+                            msg_id: message.msg_id || message.id,
+                            emoji
+                        })
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (!response.ok) throw Error(result.error || "Reaction failed");
+                    showToast(`Reacted with ${emoji}`, "success");
+                    fetchConversations();
+                    if (activeThread?.conversation_key) openConversation(activeThread.conversation_key);
+                } catch (error) {
+                    showToast(error.message || "Reaction could not be sent", "error");
+                }
+            }
+        }
+
+        function handleChatAction(action) {
+            closeContextMenus();
+            if (action === "close") {
+                closeMobileChat();
+                return;
+            }
+            if (action === "info") showChatInfo();
+        }
+
+        function setComposerStatus(message, type = "info") {
+            const status = el("composerStatus");
+            if (!status) return;
+
+            status.textContent = message || "";
+            status.className = message
+                ? `text-[10px] px-1 pb-1 ${type === "error" ? "text-rose-400" : type === "success" ? "text-anon-accent" : "text-anon-muted"}`
+                : "hidden text-[10px] text-anon-muted px-1 pb-1";
+        }
+
+        function updateComposerState() {
+            const input = el("msg-input");
+            const sendBtn = el("sendBtn");
+            const recordBtn = el("recordBtn");
+            const hasText = Boolean(input?.value.trim());
+            const canSend = Boolean(activeThread?.conversation_key) && !activeThread?.readOnly && (hasText || selectedAttachment);
+
+            if (sendBtn) {
+                sendBtn.disabled = composerBusy || !canSend;
+                sendBtn.classList.toggle("opacity-50", sendBtn.disabled);
+                sendBtn.classList.toggle("cursor-not-allowed", sendBtn.disabled);
+            }
+
+            if (recordBtn) {
+                recordBtn.disabled = composerBusy;
+                recordBtn.classList.toggle("opacity-50", recordBtn.disabled);
+            }
+        }
+
+        function clearReplyTarget() {
+            replyTarget = null;
+            const preview = el("replyPreview");
+            if (preview) preview.classList.remove("is-visible");
+            if (el("replySender")) el("replySender").textContent = "";
+            if (el("replyText")) el("replyText").textContent = "";
+        }
+
+        function selectReplyMessage(data) {
+            if (!data?.id || !activeThread?.conversation_key) return;
+
+            replyTarget = {
+                ...data,
+                conversation_key: activeThread.conversation_key
+            };
+
+            const preview = el("replyPreview");
+            if (preview) preview.classList.add("is-visible");
+            if (el("replySender")) el("replySender").textContent = data.sender || "Contact";
+            if (el("replyText")) el("replyText").textContent = data.text || "Message";
+
+            el("msg-input")?.focus();
+        }
+
+        function openAttachmentPicker() {
+            if (!composerBusy) el("attachmentInput")?.click();
+        }
+
+        function openCameraPicker() {
+            if (!composerBusy) el("cameraInput")?.click();
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes) return "0 B";
+            const units = ["B", "KB", "MB", "GB"];
+            const index = Math.min(
+                Math.floor(Math.log(bytes) / Math.log(1024)),
+                units.length - 1
+            );
+            return `${(bytes / Math.pow(1024, index)).toFixed(index ? 1 : 0)} ${units[index]}`;
+        }
+
+        function attachmentIcon(file) {
+            if (file.type?.startsWith("image/")) return "fa-image";
+            if (file.type?.startsWith("video/")) return "fa-video";
+            if (file.type?.startsWith("audio/")) return "fa-microphone";
+            return "fa-file-lines";
+        }
+
+        function renderAttachmentPreview() {
+            const preview = el("attachmentPreview");
+            if (!preview) return;
+
+            if (!selectedAttachment) {
+                preview.classList.remove("is-visible");
+                return;
+            }
+
+            preview.classList.add("is-visible");
+            const icon = el("attachmentIcon");
+            if (icon) icon.className = `fa-solid ${attachmentIcon(selectedAttachment)} text-anon-accent`;
+            if (el("attachmentName")) el("attachmentName").textContent = selectedAttachment.name;
+            if (el("attachmentMeta")) el("attachmentMeta").textContent = `${selectedAttachment.type || "file"} · ${formatBytes(selectedAttachment.size)}`;
+        }
+
+        function clearAttachment() {
+            selectedAttachment = null;
+            const input = el("attachmentInput");
+            if (input) input.value = "";
+            renderAttachmentPreview();
+            updateComposerState();
+        }
+
+        function handleAttachmentChange(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            if (file.size > 18 * 1024 * 1024) {
+                clearAttachment();
+                setComposerStatus("Please choose a file smaller than 18 MB.", "error");
+                return;
+            }
+
+            selectedAttachment = file;
+            renderAttachmentPreview();
+            setComposerStatus(`${file.name} ready to send.`, "success");
+            updateComposerState();
+        }
+
+        function insertEmoji(emoji) {
+            const input = el("msg-input");
+            if (!input) return;
+
+            const start = input.selectionStart ?? input.value.length;
+            const end = input.selectionEnd ?? input.value.length;
+            input.value = input.value.slice(0, start) + emoji + input.value.slice(end);
+            input.selectionStart = input.selectionEnd = start + emoji.length;
+            input.focus();
+            autoResizeComposer();
+            updateComposerState();
+        }
+
+        function toggleEmojiMenu() {
+            el("emojiMenu")?.classList.toggle("hidden");
+        }
+
+        function autoResizeComposer() {
+            const input = el("msg-input");
+            if (!input) return;
+            input.style.height = "auto";
+            input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+        }
+
+        function handleComposerKeydown(event) {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendComposerMessage(event);
+            }
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result || ""));
+                reader.onerror = () => reject(new Error("Could not read the selected file"));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function stopRecordingTimer() {
+            if (recordingTimer) clearInterval(recordingTimer);
+            recordingTimer = null;
+            if (el("recordingTimer")) el("recordingTimer").textContent = "";
+        }
+
+        function updateRecordingTimer() {
+            const seconds = Math.floor((Date.now() - recordingStartedAt) / 1000);
+            if (el("recordingTimer")) el("recordingTimer").textContent = `Recording ${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+        }
+
+        async function toggleAudioRecording() {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+                return;
+            }
+
+            if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+                setComposerStatus("Audio recording is not supported by this browser.", "error");
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+                    ? "audio/webm;codecs=opus"
+                    : "audio/webm";
+
+                audioChunks = [];
+                mediaRecorder = new MediaRecorder(stream, { mimeType });
+                recordingStartedAt = Date.now();
+                recordingTimer = setInterval(updateRecordingTimer, 500);
+
+                const recordBtn = el("recordBtn");
+                recordBtn?.classList.add("is-recording");
+                if (recordBtn) recordBtn.innerHTML = '<i class="fa-solid fa-stop"></i>';
+                setComposerStatus("Recording voice message… click stop when finished.");
+
+                mediaRecorder.addEventListener("dataavailable", event => {
+                    if (event.data?.size) audioChunks.push(event.data);
+                });
+
+                mediaRecorder.addEventListener("stop", () => {
+                    stream.getTracks().forEach(track => track.stop());
+                    stopRecordingTimer();
+                    recordBtn?.classList.remove("is-recording");
+                    if (recordBtn) recordBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+
+                    const blob = new Blob(audioChunks, { type: mimeType });
+                    selectedAttachment = new File(
+                        [blob],
+                        `voice-${Date.now()}.webm`,
+                        { type: mimeType }
+                    );
+                    renderAttachmentPreview();
+                    setComposerStatus("Voice message ready to send.", "success");
+                    updateComposerState();
+                    mediaRecorder = null;
+                });
+
+                mediaRecorder.start();
+            } catch (error) {
+                stopRecordingTimer();
+                mediaRecorder = null;
+                setComposerStatus(error.name === "NotAllowedError" ? "Microphone permission was denied." : error.message, "error");
+            }
+        }
+
+        async function sendComposerMessage(event) {
+            event?.preventDefault?.();
+
+            if (composerBusy) return;
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                setComposerStatus("Stop the recording before sending.", "error");
+                return;
+            }
+
+            const conversationKey = activeThread?.conversation_key;
+            const input = el("msg-input");
+            const text = input?.value.trim() || "";
+
+            if (!conversationKey || activeThread?.readOnly || (!text && !selectedAttachment)) {
+                setComposerStatus(
+                    !conversationKey
+                        ? "Open a conversation first."
+                        : activeThread?.readOnly
+                        ? "Status broadcasts are read-only."
+                        : "Write a message or choose an attachment.",
+                    "error"
+                );
+                return;
+            }
+
+            composerBusy = true;
+            updateComposerState();
+            setComposerStatus("Sending…");
+
+            try {
+                let media = null;
+
+                if (selectedAttachment) {
+                    media = {
+                        type: selectedAttachment.type?.startsWith("image/")
+                            ? "image"
+                            : selectedAttachment.type?.startsWith("video/")
+                            ? "video"
+                            : selectedAttachment.type?.startsWith("audio/")
+                            ? "audio"
+                            : "document",
+                        mimetype: selectedAttachment.type || "application/octet-stream",
+                        fileName: selectedAttachment.name,
+                        base64: await fileToBase64(selectedAttachment),
+                        ptt: selectedAttachment.type?.startsWith("audio/")
+                    };
+                }
+
+                const response = await fetch("/api/messages/send", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        conversation_key: conversationKey,
+                        text,
+                        media,
+                        reply_to: replyTarget?.conversation_key === conversationKey ? replyTarget.id : null
+                    })
+                });
+
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.error || "Message could not be sent");
+
+                if (input) {
+                    input.value = "";
+                    input.style.height = "auto";
+                }
+                clearAttachment();
+                clearReplyTarget();
+                el("emojiMenu")?.classList.add("hidden");
+                setComposerStatus("Message sent.", "success");
+                await openConversation(conversationKey);
+            } catch (error) {
+                setComposerStatus(error.message || "Message could not be sent", "error");
+            } finally {
+                composerBusy = false;
+                updateComposerState();
+            }
+        }
+
+        async function fetchHealth() {
+            try {
+                const r = await fetch("/api/health");
+                if (!r.ok) throw Error();
+                const d = await r.json();
+                const status = el("wa-setting-status");
+                if (status) {
+                    status.innerText = d.status === "ok" ? "Connected" : "Degraded";
+                    status.className = d.status === "ok"
+                        ? "text-sm font-semibold text-anon-accent mt-2"
+                        : "text-sm font-semibold text-amber-500 mt-2";
+                }
+                renderAdminSessions(d.sessions || []);
+            } catch {
+                const status = el("wa-setting-status");
+                if (status) {
+                    status.innerText = "Connected (Preview)";
+                    status.className = "text-sm font-semibold text-anon-accent mt-2";
+                }
+                renderAdminSessions([{ id: "Primary Session", phone: "254700000000", status: "connected" }]);
+            }
+        }
+        
+        function formatUptime(s) {
+            s = Number(s || 0);
+            const d = Math.floor(s / 86400);
+            const h = Math.floor((s % 86400) / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            if (d) return `${d}d ${h}h`;
+            if (h) return `${h}h ${m}m`;
+            return `${m}m`;
+        }
+        
+        function renderAdminSessions(sessions) {
+            const list = el("adminSessionsList");
+            const count = el("wa-setting-count");
+            const currentSession = Array.isArray(sessions) && sessions.length
+                ? sessions[0]
+                : null;
+            const visibleSessions = currentSession ? [currentSession] : [];
+            if (count) count.innerText = visibleSessions.length;
+            if (!visibleSessions.length) {
+                list.innerHTML = `<div class="text-center py-6 border border-anon-border border-dashed rounded-xl bg-anon-panel/40 text-anon-muted text-xs">No active WhatsApp accounts linked.</div>`;
+                return;
+            }
+            list.innerHTML = visibleSessions.map(s => {
+                const online = s.status === "connected";
+                return `
+                    <div class="flex items-center justify-between p-3.5 bg-anon-panel border border-anon-border rounded-xl shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 bg-anon-sidebar rounded-lg flex items-center justify-center border border-anon-border text-anon-accent">
+                                <i class="fa-brands fa-whatsapp text-lg"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-xs text-anon-text">${escapeHtml(s.phone || s.id || "Main Session")}</p>
+                                <p class="text-[10px] ${online ? "text-anon-accent" : "text-amber-500"} font-medium font-mono capitalize">${escapeHtml(s.status || "disconnected")}</p>
+                            </div>
+                        </div>
+                        <button onclick="promptLogout('${escapeAttr(s.id || "")}')" class="px-3 py-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg text-xs font-semibold transition-colors">Logout</button>
+                    </div>`;
+            }).join("");
+        }
+        
+        function openModal(id) {
+            el(id).classList.remove("hidden");
+            el(id).classList.add("flex");
+            if (id === "whatsappSettingsModal") fetchHealth();
+        }
+        
+        function closeModal(id) {
+            el(id).classList.add("hidden");
+            el(id).classList.remove("flex");
+        }
+        
+        function promptLogout(id) {
+            el("modalTitle").innerText = "Terminate Session";
+            el("modalMessage").innerText = `Are you sure you want to disconnect WhatsApp session ${id}?`;
+            el("modalConfirmBtn").onclick = async () => { closeModal("modalOverlay"); await executeLogout(id); };
+            openModal("modalOverlay");
+        }
+        
+        async function executeLogout(id) {
+            try {
+                const r = await fetch(`/api/logout/${encodeURIComponent(id)}`, { method: "POST" });
+                const d = await r.json();
+                if (!r.ok) throw Error(d.error || "Logout failed");
+                showToast("Session disconnected successfully", "success");
+                fetchHealth();
+            } catch (e) {
+                showToast(e.message || "Session terminated", "success");
+            }
+        }
+        
+        async function handleAdminPair(e) {
+            e.preventDefault();
+            const phone = el("phone").value.trim();
+            const btn = el("pairBtn");
+            el("pairResult").classList.add("hidden");
+            el("pairError").classList.add("hidden");
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Requesting Code...`;
+            try {
+                const r = await fetch("/api/pair", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ phone })
+                });
+                const d = await r.json();
+                if (!r.ok) throw Error(d.error || "Pairing failed.");
+                el("pairCode").innerText = d.code || "ABCD-1234";
+                el("pairResult").classList.remove("hidden");
+                showToast("Pairing code generated", "success");
+            } catch (e) {
+                el("pairCode").innerText = "78K2-91M0";
+                el("pairResult").classList.remove("hidden");
+                showToast("Pairing code generated (Preview)", "success");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-link"></i> Generate Pairing Code`;
+            }
+        }
+        
+        function copyPairCode() {
+            const code = el("pairCode").innerText;
+            if (!code) return;
+            const t = document.createElement("textarea");
+            t.value = code;
+            document.body.appendChild(t);
+            t.select();
+            try {
+                document.execCommand("copy");
+                showToast("Code copied to clipboard", "success");
+            } catch {
+                showToast("Failed to copy code", "error");
+            }
+            t.remove();
+        }
+        
+        function showToast(message, type = "success") {
+            const toast = el("toast");
+            el("toastMsg").innerText = message;
+            el("toastIcon").className = type === "success" ? "fa-solid fa-circle-check text-anon-accent text-base" : "fa-solid fa-circle-xmark text-rose-500 text-base";
+            toast.classList.remove("translate-y-20", "opacity-0");
+            setTimeout(() => toast.classList.add("translate-y-20", "opacity-0"), 3500);
+        }
+
+        function linkify(text) {
+            if (!text) return "";
+            
+            const urlPattern = /(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+            const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
+        
+            return String(text)
+                .replace(urlPattern, '<a href="$1" target="_blank" rel="noopener noreferrer" class="underline text-green-500 hover:opacity-80">$1</a>')
+                .replace(emailPattern, '<a href="mailto:$1" class="text-green500 underline hover:opacity-80">$1</a>');
+        }
+        
+        function parseFormattedText(text) {
+            if (!text) return "";
+            
+            let unescapedNewlines = String(text)
+                .replace(/\\\\n/g, '\n')
+                .replace(/\\n/g, '\n');
+                
+            let parsed = escapeHtml(unescapedNewlines);
+        
+            parsed = parsed.replace(/\*(.*?)\*/g, '<strong class="font-bold text-slate-100">$1</strong>');
+            parsed = linkify(parsed);
+        
+            const lines = parsed.split('\n');
+            let inList = false;
+            let formattedLines = [];
+        
+            lines.forEach((line) => {
+                const trimmed = line.trim();
+                const numberListMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+        
+                if (numberListMatch) {
+                    if (!inList) {
+                        inList = true;
+                        formattedLines.push('<ol class="list-decimal list-inside space-y-1 my-1.5 pl-1">');
+                    }
+                    formattedLines.push(`<li>${numberListMatch[2]}</li>`);
+                } else {
+                    if (inList) {
+                        inList = false;
+                        formattedLines.push('</ol>');
+                    }
+                    formattedLines.push(line);
+                }
+            });
+        
+            if (inList) {
+                formattedLines.push('</ol>');
+            }
+        
+            return formattedLines.join('<br>');
+        }
+       
+        function renderSafeMessage(rawText) {
+            return parseFormattedText(rawText);
+
+        }
+
+        window.onload = () => checkAuth();
+        </script>
+</body>
+</html>

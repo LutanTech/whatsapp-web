@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Bot Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans flex flex-col justify-between">
+
+    <header class="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-50 backdrop-blur">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+                    <i class="fa-brands fa-whatsapp text-2xl"></i>
+                </div>
+                <div>
+                <h1 class="font-bold text-lg leading-tight">WhatsApp Bot Portal</h1>
+                <p class="text-xs text-slate-400">Device Pairing Portal</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2 text-xs bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700">
+                <span id="socket-dot" class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                <span id="socket-text" class="text-slate-300">Connecting...</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col justify-center">
+
+        <!-- Banner / Welcome -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full text-xs text-emerald-400 mb-3">
+                <i class="fa-solid fa-link text-[10px]"></i>
+                <span>Instant Multi-Device Linking</span>
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-bold text-slate-100">Pair Your WhatsApp Account</h2>
+            <p class="text-sm text-slate-400 mt-2 max-w-lg mx-auto">
+                Generate an official 8-digit pairing code to securely connect your phone number to the automated WhatsApp bot instance.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+            
+            <!-- Form Card -->
+            <div class="glass rounded-2xl p-6 sm:p-8 md:col-span-7 space-y-5 border border-slate-800 shadow-2xl">
+                <div class="flex items-center space-x-3 pb-3 border-b border-slate-800">
+                    <div class="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                        <i class="fa-solid fa-mobile-screen-button text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-semibold text-slate-100">Phone Pairing Request</h3>
+                        <p class="text-xs text-slate-400">Enter phone number with international country code</p>
+                    </div>
+                </div>
+
+                <form id="pairForm" onsubmit="handlePair(event)" class="space-y-4">
+                    <div>
+                        <label for="phone" class="block text-xs font-medium text-slate-300 mb-1.5">Phone Number</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                                <i class="fa-solid fa-phone text-xs"></i>
+                            </div>
+                            <input type="text" id="phone" placeholder="e.g. 254712345678" required 
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-3 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition">
+                        </div>
+                        <p class="text-[11px] text-slate-500 mt-1">Include country code without lead '+' or spaces (e.g., 254... or 1...)</p>
+                    </div>
+
+                    <button type="submit" id="pairBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-xl transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50 text-sm">
+                        <i class="fa-solid fa-key"></i>
+                        <span>Generate Pairing Code</span>
+                    </button>
+                </form>
+
+                <!-- Success Box -->
+                <div id="pairResult" class="hidden mt-4 p-5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-center">
+                    <p class="text-xs font-medium text-emerald-300 uppercase tracking-wider">Pairing Code Issued</p>
+                    <p id="pairCode" class="text-3xl font-mono font-bold tracking-widest text-emerald-400 select-all my-2"></p>
+                    <p class="text-xs text-slate-400">Use this code immediately in WhatsApp under <b>Linked Devices</b> &rarr; <b>Link with phone number instead</b>.</p>
+                </div>
+
+                <!-- Error Box -->
+                <div id="pairError" class="hidden mt-4 p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-center">
+                    <p id="pairErrorMsg" class="text-xs text-rose-300"></p>
+                </div>
+            </div>
+
+            <!-- Instruction Box -->
+            <div class="glass rounded-2xl p-6 md:col-span-5 space-y-4 border border-slate-800">
+                <h3 class="text-sm font-semibold text-slate-200 uppercase tracking-wider flex items-center space-x-2">
+                    <i class="fa-solid fa-circle-info text-blue-400"></i>
+                    <span>How to Link</span>
+                </h3>
+
+                <ol class="space-y-3.5 text-xs text-slate-300 list-decimal list-inside leading-relaxed">
+                    <li class="pl-1">
+                        Open <strong class="text-slate-100">WhatsApp</strong> on your phone.
+                    </li>
+                    <li class="pl-1">
+                        Tap <strong class="text-slate-100">Menu / Settings</strong> &rarr; <strong class="text-slate-100">Linked Devices</strong>.
+                    </li>
+                    <li class="pl-1">
+                        Tap <strong class="text-slate-100">Link a Device</strong>.
+                    </li>
+                    <li class="pl-1">
+                        Select <strong class="text-slate-100">"Link with phone number instead"</strong> at the bottom.
+                    </li>
+                    <li class="pl-1">
+                        Enter the 8-character code generated on this page.
+                    </li>
+                </ol>
+
+                <div class="pt-3 border-t border-slate-800/80 text-[11px] text-slate-400">
+                    <span>Keep your phone connected to the internet while completing the setup.</span>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <footer class="border-t border-slate-800/80 py-4 mt-auto bg-slate-950/60">
+        <div class="max-w-6xl mx-auto px-4 text-center text-xs text-slate-500">
+            WhatsApp Bot Device Linker &bull; Powered by Baileys & Express
+        </div>
+    </footer>
+
+    <script>
+        const socket = io();
+
+        socket.on('connect', () => {
+            document.getElementById('socket-dot').className = "w-2 h-2 rounded-full bg-emerald-500";
+            document.getElementById('socket-text').innerText = "Connected";
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('socket-dot').className = "w-2 h-2 rounded-full bg-rose-500 animate-pulse";
+            document.getElementById('socket-text').innerText = "Disconnected";
+        });
+
+        async function handlePair(e) {
+            e.preventDefault();
+            const phoneInput = document.getElementById('phone');
+            const btn = document.getElementById('pairBtn');
+            const resultBox = document.getElementById('pairResult');
+            const errorBox = document.getElementById('pairError');
+
+            resultBox.classList.add('hidden');
+            errorBox.classList.add('hidden');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Generating Code...</span>`;
+
+            try {
+                const res = await fetch('/api/pair', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: phoneInput.value })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Failed to request pairing code');
+                }
+
+                const code = data.code || data.customCode || (typeof data === 'string' ? data : JSON.stringify(data));
+                document.getElementById('pairCode').innerText = code;
+                resultBox.classList.remove('hidden');
+
+            } catch (err) {
+                document.getElementById('pairErrorMsg').innerText = err.message;
+                errorBox.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-key"></i> <span>Generate Pairing Code</span>`;
+            }
+        }
+    </script>
+</body>
+</html>

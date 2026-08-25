@@ -1,0 +1,7 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home3/tunupublsh/repositories/mini-whatsapp
+    - /bin/mkdir -p $DEPLOYPATH
+    - /bin/cp -R * $DEPLOYPATH/
+    - cd $DEPLOYPATH && npm install --omit=dev

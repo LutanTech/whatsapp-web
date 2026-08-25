@@ -1,0 +1,8 @@
+node_modules/
+.env
+sessions/
+data/
+*.log
+package-lock.json
+public/media
+lib/uploads
