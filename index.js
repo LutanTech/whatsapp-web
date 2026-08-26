@@ -5,7 +5,7 @@ const http = require("http")
 const { Server } = require("socket.io")
 const path = require("path")
 
-const { pair, logout, restoreSessions, getSessions, getSession } = require("./lib/sessions")
+const { pair, logout, restoreSessions, getSessions, getSession, getPresence, isOnlinePresence, requestPresence, setSessionEventEmitter } = require("./lib/sessions")
 const { refreshConversationAvatar } = require("./lib/avatar-refresh")
 const { all, run } = require("./lib/database")
 const { recordMessage, conversationKey, setMessageEmitter } = require("./lib/messages")
@@ -27,7 +27,8 @@ async function migrateDatabaseSchema() {
         `ALTER TABLE messages ADD COLUMN chat_avatar TEXT`,
         `ALTER TABLE messages ADD COLUMN media_size INTEGER DEFAULT 0`,
         `ALTER TABLE messages ADD COLUMN is_status INTEGER DEFAULT 0`,
-        `ALTER TABLE messages ADD COLUMN is_view_once INTEGER DEFAULT 0`
+        `ALTER TABLE messages ADD COLUMN is_view_once INTEGER DEFAULT 0`,
+        `ALTER TABLE messages ADD COLUMN read_at INTEGER DEFAULT 0`
     ]
 
     for (const sql of columnsToMigrate) {
@@ -85,6 +86,9 @@ async function migrateDatabaseSchema() {
 }
 
 setMessageEmitter(message => io.emit("message", message))
+setSessionEventEmitter(event => {
+    if (event?.type === "presence") io.emit("presence", event)
+})
 
 app.get("/api/health", (req, res) => {
     res.json({
@@ -145,6 +149,14 @@ app.get("/api/conversations", async (req, res) => {
                 m.push_name,
                 m.group_name,
                 m.channel_name,
+                (
+                    SELECT COUNT(*)
+                    FROM messages u
+                    WHERE u.conversation_key=m.conversation_key
+                      AND u.from_me=0
+                      AND u.jid!='status@broadcast'
+                      AND COALESCE(u.read_at, 0)=0
+                ) AS unread_count,
                 (
                     SELECT COALESCE(
                         NULLIF(i.push_name, ''),
@@ -210,7 +222,13 @@ app.get("/api/conversations", async (req, res) => {
 
             const isStatus = row.jid === "status@broadcast"
             const isGroup = String(row.jid || "").endsWith("@g.us")
+            const isChannel = String(row.jid || "").endsWith("@newsletter")
             const isSelfInbox = row.jid === `${row.session_id}@s.whatsapp.net`
+            const presenceState = !session || isStatus || isGroup || isChannel || isSelfInbox
+                ? "unavailable"
+                : getPresence(row.session_id, row.jid)
+            if (session && !isStatus && !isGroup && !isChannel && !isSelfInbox)
+                requestPresence(row.session_id, row.jid)
             const ownerName = String(session?.sock?.user?.name || "").trim()
             const incomingName = String(row.incoming_user_name || "").trim()
             const safeLiveName = liveName && liveName !== ownerName
@@ -257,6 +275,8 @@ app.get("/api/conversations", async (req, res) => {
                 ...row,
                 last_from_me: outgoing,
                 last_sender_name: lastSenderName,
+                is_online: isOnlinePresence(presenceState),
+                presence: presenceState,
                 other_user_name: otherUserName,
                 ...(isStatus
                     ? { chat_name: "WhatsApp Status Broadcasts" }
@@ -269,6 +289,22 @@ app.get("/api/conversations", async (req, res) => {
         })
 
         res.json({ conversations: namedRows })
+    } catch (err) {
+        res.status(500).json({ error: err.message })
+    }
+})
+
+app.post("/api/conversations/:key/read", async (req, res) => {
+    try {
+        const key = decodeURIComponent(req.params.key)
+        await run(`
+            UPDATE messages
+            SET read_at = CAST(strftime('%s', 'now') AS INTEGER)
+            WHERE conversation_key = ?
+              AND from_me = 0
+              AND jid != 'status@broadcast'
+        `, [key])
+        res.json({ success: true })
     } catch (err) {
         res.status(500).json({ error: err.message })
     }
@@ -452,6 +488,28 @@ app.post("/api/messages/pin", async (req, res) => {
         res.json({ success: true })
     } catch (err) {
         console.error("[MESSAGE PIN] Error:", err.message)
+        res.status(500).json({ error: err.message })
+    }
+})
+
+app.post("/api/status/reply", async (req, res) => {
+    try {
+        const sessionId = String(req.body?.session_id || "").trim()
+        const sender = String(req.body?.sender || "").trim()
+        const text = typeof req.body?.text === "string" ? req.body.text.trim() : ""
+        const session = getSession(sessionId)
+
+        if (!session?.sock || !sender || !text)
+            return res.status(400).json({ error: "Status sender and reply text are required" })
+
+        if (sender === "status@broadcast")
+            return res.status(400).json({ error: "Invalid status sender" })
+
+        const sent = await session.sock.sendMessage(sender, { text })
+        console.log(`[STATUS REPLY] -> ${sender}`, sent?.key?.id || "")
+        res.json({ success: true, key: sent?.key || null })
+    } catch (err) {
+        console.error("[STATUS REPLY] Error:", err.message)
         res.status(500).json({ error: err.message })
     }
 })

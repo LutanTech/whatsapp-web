@@ -238,6 +238,40 @@
                 padding-right: 88px;
             }
         }
+        @media (max-width: 767px) {
+            #adminDashboard {
+                height: 100dvh !important;
+                padding-bottom: 4rem;
+            }
+            #sidebar,
+            #mainChatArea {
+                height: calc(100dvh - 4rem) !important;
+                min-height: 0;
+            }
+            #sidebar > nav {
+                display: none;
+            }
+            #activeChatView {
+                min-height: 0;
+            }
+            #chatMessagesContainer {
+                min-height: 0;
+                padding-bottom: .75rem;
+            }
+            #activeChatView > footer {
+                flex: 0 0 auto;
+                padding-bottom: calc(.75rem + env(safe-area-inset-bottom));
+            }
+            #mobileBottomNav {
+                display: flex !important;
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+        }
+        @media (min-width: 768px) {
+            #mobileBottomNav {
+                display: none !important;
+            }
+        }
         #replyPreview, #attachmentPreview {
             display: none;
         }
@@ -533,7 +567,7 @@
                             <div class="w-10 h-10 bg-anon-panel border border-anon-border rounded-full flex items-center justify-center text-anon-accent shrink-0 shadow-inner">
                                 <i id="chatHeaderIcon" class="fa-solid fa-user text-sm"></i>
                             </div>
-                            <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-anon-sidebar"></span>
+                            <span id="chatPresenceDot" class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-slate-500 border-2 border-anon-sidebar" title="Offline"></span>
                         </div>
                         
                         <div class="min-w-0">
@@ -628,7 +662,26 @@
                 </footer>
             </div>
         </main>
-    </div>
+        </div>
+
+    <nav id="mobileBottomNav" class="fixed bottom-0 inset-x-0 z-[75] hidden h-16 items-center justify-around border-t border-anon-border bg-slate-950/95 px-2 backdrop-blur-md">
+        <button onclick="setFilter('all'); closeMobileChat()" class="nav-tab flex h-full flex-1 flex-col items-center justify-center py-1 text-anon-muted hover:text-anon-text" title="Chats">
+            <i class="fa-solid fa-comments mb-1 text-base"></i>
+            <span class="text-[10px] font-semibold">Chats</span>
+        </button>
+        <button onclick="setFilter('group'); closeMobileChat()" class="nav-tab flex h-full flex-1 flex-col items-center justify-center py-1 text-anon-muted hover:text-anon-text" title="Groups">
+            <i class="fa-solid fa-users mb-1 text-base"></i>
+            <span class="text-[10px] font-semibold">Groups</span>
+        </button>
+        <button onclick="setFilter('status'); closeMobileChat()" class="nav-tab flex h-full flex-1 flex-col items-center justify-center py-1 text-anon-muted hover:text-anon-text" title="Updates">
+            <i class="fa-solid fa-bullhorn mb-1 text-base"></i>
+            <span class="text-[10px] font-semibold">Updates</span>
+        </button>
+        <button onclick="setFilter('private'); closeMobileChat()" class="nav-tab flex h-full flex-1 flex-col items-center justify-center py-1 text-anon-muted hover:text-anon-text" title="Direct">
+            <i class="fa-solid fa-user-lock mb-1 text-base"></i>
+            <span class="text-[10px] font-semibold">Direct</span>
+        </button>
+    </nav>
 
     <div id="whatsappSettingsModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4 backdrop-blur-md transition-all duration-200">
         <div class="glass-modal max-w-2xl w-full rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-anon-border animate-pop-in">
@@ -922,6 +975,14 @@
             </div>
     
             <div id="statusDayModalContent" class="w-full h-full flex items-center justify-center p-4"></div>
+
+            <form id="statusReplyComposer" class="absolute bottom-0 inset-x-0 z-30 flex items-end gap-2 border-t border-white/10 bg-black/75 p-3 backdrop-blur-md" onsubmit="sendStatusReply(event)">
+                <input id="statusReplyInput" type="text" autocomplete="off" placeholder="Reply to this status…" class="min-w-0 flex-1 rounded-lg border border-white/15 bg-slate-900/90 px-3 py-2.5 text-xs text-white outline-none placeholder:text-slate-400 focus:border-anon-accent">
+                <button id="statusReplySendBtn" type="submit" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-anon-accent text-slate-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50" title="Reply to status">
+                    <i class="fa-solid fa-paper-plane text-xs"></i>
+                </button>
+            </form>
+            <div id="statusReplyStatus" class="absolute bottom-16 inset-x-3 z-30 hidden rounded-lg bg-black/75 px-3 py-1.5 text-[10px] text-white backdrop-blur-md"></div>
         </div>
     </div>
 
@@ -964,6 +1025,17 @@
             if (c.jid?.endsWith("@newsletter")) return c.channel_name || c.subject || c.push_name || "WhatsApp Channel";
             if (c.jid?.endsWith("@g.us")) return c.group_name || c.chat_name || c.jid;
             return c.chat_name || c.jid || "Unknown User";
+        }
+
+        function setPresenceDot(conversation) {
+            const dot = el("chatPresenceDot");
+            if (!dot) return;
+            const isOnline = !conversation?.jid?.endsWith("@g.us") &&
+                !conversation?.jid?.includes("status@broadcast") &&
+                !conversation?.jid?.endsWith("@newsletter") &&
+                (conversation?.is_online === true || ["online", "available", "composing", "recording"].includes(String(conversation?.presence || "").toLowerCase()));
+            dot.className = `absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ${isOnline ? "bg-emerald-500" : "bg-slate-500"} border-2 border-anon-sidebar`;
+            dot.title = isOnline ? "Online" : "Offline";
         }
         
         function readWhatsAppSettings() {
@@ -1208,6 +1280,20 @@
                         el("socket-text").innerText = "Reconnecting...";
                     });
                     socket.on("sessions", renderAdminSessions);
+                    socket.on("presence", update => {
+                        const normalizePresenceJid = jid => String(jid || "").replace(/:\\d+@/, "@");
+                        const index = conversations.findIndex(item =>
+                            String(item.session_id || "") === String(update.session_id || "") &&
+                            normalizePresenceJid(item.jid) === normalizePresenceJid(update.jid)
+                        );
+                        if (index >= 0) {
+                            conversations[index].presence = update.presence || "unavailable";
+                            conversations[index].is_online = update.is_online === true;
+                            renderConversationsList();
+                            if (activeThread?.conversation_key === conversations[index].conversation_key)
+                                setPresenceDot(conversations[index]);
+                        }
+                    });
                     socket.on("message", m => {
                         fetchConversations();
                         if (activeThread && m.conversation_key === activeThread.conversation_key) {
@@ -1252,7 +1338,8 @@
                 return target.includes(search) && f;
             }).sort((a,b) => Number(b.last_time || 0) - Number(a.last_time || 0));
         
-            el("onlineCountBadge").innerText = `${filtered.length} Active`;
+                const onlineCount = filtered.filter(item => item.is_online === true || ["online", "available", "composing", "recording"].includes(String(item.presence || "").toLowerCase())).length;
+                el("onlineCountBadge").innerText = `${onlineCount} Online`;
         
             if (!filtered.length) {
                 c.innerHTML = `
@@ -1279,6 +1366,11 @@
                     ? (x.last_sender_name || x.push_name || x.sender_name || x.other_user_name || "Participant")
                     : title;
                 const isChannel = x.jid?.endsWith("@newsletter");
+                const isOnline = !isGroup && !isStatus && !isChannel && (
+                    x.is_online === true ||
+                    ["online", "available", "composing", "recording"].includes(String(x.presence || "").toLowerCase())
+                );
+                const unreadCount = Math.max(0, Number(x.unread_count || 0));
         
                 let iconClass = "fa-user";
                 if (isGroup) iconClass = "fa-users";
@@ -1303,7 +1395,7 @@
                     <div onclick="openConversation('${escapeAttr(key)}')" class="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all relative group ${active ? "bg-anon-panel border border-anon-accent/40 shadow-lg shadow-emerald-950/20" : "hover:bg-anon-panel/60 border border-transparent"}">
                         <div class="relative shrink-0">
                             ${avatarHtml}
-                            <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-anon-sidebar"></span>
+                            <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${isOnline ? "bg-emerald-500" : "bg-slate-500"} border-2 border-anon-sidebar" title="${isOnline ? "Online" : "Offline"}"></span>
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="flex justify-between items-baseline gap-2 mb-1">
@@ -1313,6 +1405,7 @@
                             <div class="flex items-center gap-1.5 text-[11px] text-anon-muted truncate">
                                 <i class="fa-solid ${lastMessageIsMine ? "fa-check-double text-anon-accent" : "fa-message text-anon-muted"} text-[10px]"></i>
                                 <span class="truncate privacy-sensitive">${escapeHtml(previewPrefix)}: ${escapeHtml(msg)}</span>
+                                ${unreadCount ? `<span class="ml-auto shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-anon-accent text-slate-950 text-[10px] font-bold flex items-center justify-center" title="${unreadCount} unread message${unreadCount === 1 ? "" : "s"}">${unreadCount > 99 ? "99+" : unreadCount}</span>` : ""}
                             </div>
                         </div>
                     </div>`;
@@ -1330,6 +1423,15 @@
                 conversation_key: key,
                 readOnly: conversation.jid === "status@broadcast"
             };
+            if (conversation.jid !== "status@broadcast") {
+                fetch(`/api/conversations/${encodeURIComponent(key)}/read`, { method: "POST" })
+                    .then(() => {
+                        const readIndex = conversations.findIndex(item => item.conversation_key === key);
+                        if (readIndex >= 0) conversations[readIndex].unread_count = 0;
+                        renderConversationsList();
+                    })
+                    .catch(() => {});
+            }
             updateComposerState();
         
             if (window.innerWidth < 768) {
@@ -1362,10 +1464,11 @@
             }));
             const headerIconEl = el("chatHeaderIcon");
             if (imageSrc && headerIconEl?.parentElement) {
-                headerIconEl.parentElement.innerHTML = `<img src="${escapeAttr(imageSrc)}" class="w-10 h-10 rounded-full object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" id="chatHeaderIcon" onclick='openAvatarModal(${headerAvatarPayload}, event)'>`;
+                headerIconEl.parentElement.innerHTML = `<img src="${escapeAttr(imageSrc)}" class="w-10 h-10 rounded-full object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" id="chatHeaderIcon" onclick='openAvatarModal(${headerAvatarPayload}, event)'><span id="chatPresenceDot" class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-slate-500 border-2 border-anon-sidebar" title="Offline"></span>`;
             } else if (headerIconEl) {
                 headerIconEl.className = `fa-solid ${iconClass} text-sm`;
             }
+            setPresenceDot(conversation);
         
             const container = el("chatMessagesContainer");
             container.innerHTML = `
@@ -1410,8 +1513,9 @@
                             jid: conversation.jid || "",
                             title: getConversationTitle(conversation)
                         }));
-                        header.parentElement.innerHTML = `<img src="${escapeAttr(refreshedAvatar)}" class="w-10 h-10 rounded-full object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" id="chatHeaderIcon" onclick='openAvatarModal(${refreshedAvatarPayload}, event)'>`;
+                        header.parentElement.innerHTML = `<img src="${escapeAttr(refreshedAvatar)}" class="w-10 h-10 rounded-full object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" id="chatHeaderIcon" onclick='openAvatarModal(${refreshedAvatarPayload}, event)'><span id="chatPresenceDot" class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-slate-500 border-2 border-anon-sidebar" title="Offline"></span>`;
                     }
+                    setPresenceDot(conversation);
 
                     const conversationIndex = conversations.findIndex(
                         item => item.conversation_key === key
@@ -1649,6 +1753,7 @@
         let statusPaused = false;
         let statusSegmentStartedAt = 0;
         let statusRemainingMs = 0;
+        let statusDurationMs = 5000;
         const STATUS_DURATION = 5000;
 
 
@@ -1663,8 +1768,16 @@
                     : '<i class="fa-solid fa-pause text-sm"></i>';
             }
 
-            if (progress)
+            if (progress) {
                 progress.style.animationPlayState = statusPaused ? "paused" : "running";
+                progress.style.animationDuration = `${statusDurationMs}ms`;
+            }
+
+            const video = el("statusDayModalContent")?.querySelector("video");
+            if (video) {
+                if (statusPaused) video.pause();
+                else video.play().catch(() => {});
+            }
         }
 
         function scheduleStatusAdvance() {
@@ -1675,7 +1788,7 @@
             statusTimer = setTimeout(() => {
                 statusRemainingMs = 0;
                 nextStatusSegment();
-            }, Math.max(250, statusRemainingMs || STATUS_DURATION));
+            }, Math.max(250, statusRemainingMs || statusDurationMs));
         }
 
         function toggleStatusPause() {
@@ -1690,7 +1803,7 @@
                     : 0;
                 statusRemainingMs = Math.max(
                     250,
-                    (statusRemainingMs || STATUS_DURATION) - elapsed
+                    (statusRemainingMs || statusDurationMs) - elapsed
                 );
                 statusPaused = true;
                 clearTimeout(statusTimer);
@@ -1715,7 +1828,8 @@
             currentStatusList = statuses.sort((a, b) => Number(a.created_at) - Number(b.created_at));
             currentStatusIndex = 0;
             statusPaused = false;
-            statusRemainingMs = STATUS_DURATION;
+            statusDurationMs = STATUS_DURATION;
+            statusRemainingMs = statusDurationMs;
 
             const modal = el("statusDayModal");
             if (modal) {
@@ -1728,7 +1842,8 @@
 
         function renderSingleStatus() {
             clearTimeout(statusTimer);
-            statusRemainingMs = STATUS_DURATION;
+            statusDurationMs = STATUS_DURATION;
+            statusRemainingMs = statusDurationMs;
 
             const modal = el("statusDayModal");
             if (!modal) return;
@@ -1741,6 +1856,17 @@
 
             const m = currentStatusList[currentStatusIndex];
             if (!m) return;
+
+            const statusReplyInput = el("statusReplyInput");
+            if (statusReplyInput) {
+                statusReplyInput.placeholder = `Reply to ${m.sender_name || m.push_name || m.sender || "this status"}…`;
+                statusReplyInput.value = "";
+            }
+            const statusReplyStatus = el("statusReplyStatus");
+            if (statusReplyStatus) {
+                statusReplyStatus.classList.add("hidden");
+                statusReplyStatus.textContent = "";
+            }
 
             const senderName = m.sender_name || m.push_name || m.sender || "Contact";
             const time = new Date(Number(m.created_at) * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -1756,7 +1882,7 @@
                 progressContainer.innerHTML = currentStatusList.map((_, idx) => `
                     <div class="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
                         <div class="h-full bg-white transition-all duration-linear ${idx === currentStatusIndex ? 'animate-status-progress status-current-progress' : idx < currentStatusIndex ? 'w-full' : 'w-0'}" 
-                            style="${idx === currentStatusIndex ? `animation-duration: ${STATUS_DURATION}ms; animation-play-state: ${statusPaused ? "paused" : "running"};` : ''}"></div>
+                            style="${idx === currentStatusIndex ? `animation-duration: ${statusDurationMs}ms; animation-play-state: ${statusPaused ? "paused" : "running"};` : ''}"></div>
                     </div>
                 `).join("");
             }
@@ -1783,12 +1909,35 @@
                 <div class="relative w-full h-full flex flex-col items-center justify-center">
                     ${body}
                     ${m.media_path && m.text ? `
-                        <div class="absolute bottom-6 inset-x-4 z-20 bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 text-xs text-white text-center break-words">
+                        <div class="absolute bottom-20 inset-x-4 z-20 bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 text-xs text-white text-center break-words">
                             ${parseFormattedText(m.text)}
                         </div>` : ''
                     }
                 </div>`;
 
+            const video = content.querySelector("video");
+            if (video) {
+                const syncVideoDuration = () => {
+                    const duration = Number(video.duration);
+                    if (!Number.isFinite(duration) || duration <= 0) return;
+
+                    const elapsed = statusSegmentStartedAt
+                        ? Date.now() - statusSegmentStartedAt
+                        : 0;
+                    statusDurationMs = Math.min(120000, Math.max(1000, Math.round(duration * 1000)));
+                    statusRemainingMs = Math.max(250, statusDurationMs - elapsed);
+                    const progress = document.querySelector("#statusProgressContainer .status-current-progress");
+                    if (progress) progress.style.animationDuration = `${statusDurationMs}ms`;
+                    scheduleStatusAdvance();
+                };
+                if (video.readyState >= 1) syncVideoDuration();
+                else video.addEventListener("loadedmetadata", syncVideoDuration, { once: true });
+                video.addEventListener("ended", () => {
+                    if (currentStatusList[currentStatusIndex] === m) nextStatusSegment();
+                }, { once: true });
+            }
+
+            updateStatusPauseButton();
             scheduleStatusAdvance();
         }
 
@@ -1811,6 +1960,49 @@
         }
 
        
+        async function sendStatusReply(event) {
+            event?.preventDefault?.();
+            const input = el("statusReplyInput");
+            const button = el("statusReplySendBtn");
+            const status = el("statusReplyStatus");
+            const current = currentStatusList[currentStatusIndex];
+            const text = input?.value?.trim() || "";
+            if (!text || !current) return;
+
+            if (button) button.disabled = true;
+            if (status) {
+                status.textContent = "Sending reply…";
+                status.className = "absolute bottom-16 inset-x-3 z-30 rounded-lg bg-black/75 px-3 py-1.5 text-[10px] text-white backdrop-blur-md";
+            }
+
+            try {
+                const response = await fetch("/api/status/reply", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        session_id: current.session_id || "",
+                        sender: current.sender || current.sender_jid || "",
+                        text,
+                        status_msg_id: current.msg_id || ""
+                    })
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw Error(result.error || "Status reply failed");
+                if (input) input.value = "";
+                if (status) {
+                    status.textContent = "Reply sent";
+                    status.className = "absolute bottom-16 inset-x-3 z-30 rounded-lg bg-emerald-950/90 px-3 py-1.5 text-[10px] text-emerald-200 backdrop-blur-md";
+                }
+            } catch (error) {
+                if (status) {
+                    status.textContent = error.message || "Status reply failed";
+                    status.className = "absolute bottom-16 inset-x-3 z-30 rounded-lg bg-rose-950/90 px-3 py-1.5 text-[10px] text-rose-200 backdrop-blur-md";
+                }
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
+
         function openReactionModal(reactions, emoji) {
             const modal = el("reactionModal");
             const content = el("reactionModalContent");
