@@ -8,6 +8,13 @@
     <meta name="author" content="Lutan Tech">
     <meta name="theme-color" content="#030712">
     <meta name="color-scheme" content="dark">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="WA Bot">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/logo/logo.jpeg" type="image/jpeg">
+    <link rel="apple-touch-icon" href="/logo/logo.jpeg">
     
     <!-- Icons & Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -210,6 +217,17 @@
         .composer-send-tools {
             pointer-events: auto;
         }
+        .message-bubble[data-swipe-reply="true"] {
+            touch-action: pan-y;
+            will-change: transform;
+            transition: transform .18s ease, box-shadow .18s ease;
+        }
+        .message-bubble.swipe-dragging {
+            transition: none;
+        }
+        .message-bubble.swipe-ready {
+            box-shadow: 0 0 0 1px rgba(16, 185, 129, .75), 0 8px 24px rgba(16, 185, 129, .12);
+        }
         #msg-input {
             min-height: 54px;
             max-height: 150px;
@@ -369,7 +387,7 @@
 
 <body class="bg-anon-bg text-anon-text h-screen overflow-hidden font-sans select-none antialiased flex flex-col">
 
-    <div id="loginGate" class="fixed inset-0 bg-anon-bg/95 backdrop-blur-2xl z-50 flex items-center justify-center p-4 transition-all duration-300">
+    <div id="loginGate" class="fixed inset-0 bg-anon-bg/95 backdrop-blur-2xl z-50 hidden items-center justify-center p-4 transition-all duration-300">
         <div class="glass-modal max-w-md w-full rounded-2xl p-8 shadow-2xl space-y-6 shadow-glow-emerald border border-anon-accent/30 relative overflow-hidden animate-pop-in">
             <!-- Decorative Accent Lines -->
             <div class="absolute -top-24 -left-24 w-48 h-48 bg-anon-accent/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -471,23 +489,7 @@
 
             <!-- Search & Banner Box -->
             <div class="p-3.5 space-y-3 shrink-0 border-b border-anon-border/40">
-                <!-- Info Banner -->
-                <div class="glass-card rounded-xl p-3 border border-anon-accent/20 bg-emerald-950/20 relative overflow-hidden flex items-start gap-3">
-                    <div class="p-2 bg-anon-accent/15 text-anon-accent rounded-lg border border-anon-accent/30 shrink-0 mt-0.5">
-                        <i class="fa-solid fa-shield-halved text-sm"></i>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between">
-                            <h4 class="text-xs font-bold text-anon-accent tracking-wide">Live Audit Console</h4>
-                            <button onclick="this.closest('.glass-card').remove()" class="text-anon-muted hover:text-anon-text text-[10px]">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
-                        </div>
-                        <p class="text-[11px] text-slate-300 leading-relaxed mt-0.5">
-                            Realtime stream of active WhatsApp sessions, broadcast statuses & message history.
-                        </p>
-                    </div>
-                </div>
+                
 
                 <!-- Search Input -->
                 <div class="relative flex items-center bg-anon-panel/80 rounded-lg px-3.5 py-2.5 border border-anon-border/80 focus-within:border-anon-accent/50 focus-within:ring-1 focus-within:ring-anon-accent/50 transition-all">
@@ -758,6 +760,9 @@
                             <button onclick="fetchHealth()" class="text-xs bg-anon-panel hover:bg-anon-panelHover px-3 py-1.5 rounded-lg border border-anon-border transition-colors flex items-center gap-1.5 text-anon-text">
                                 <i class="fa-solid fa-arrows-rotate text-[10px]"></i> Refresh
                             </button>
+                            <button id="installPwaButton" onclick="installPWA()" class="hidden text-xs bg-anon-accent/15 hover:bg-anon-accent/25 px-3 py-1.5 rounded-lg border border-anon-accent/30 transition-colors items-center gap-1.5 text-anon-accent">
+                                <i class="fa-solid fa-download text-[10px]"></i> Install app
+                            </button>
                             <button onclick="closeModal('whatsappSettingsModal'); openModal('pairModal')" class="text-xs bg-anon-accent/15 hover:bg-anon-accent/25 px-3 py-1.5 rounded-lg border border-anon-accent/30 transition-colors flex items-center gap-1.5 text-anon-accent">
                                 <i class="fa-solid fa-plus text-[10px]"></i> Link device
                             </button>
@@ -1001,6 +1006,7 @@
         let avatarModalRequest = 0;
         let activeContextMessage = null;
         let contextMenusBound = false;
+        let deferredInstallPrompt = null;
         const WHATSAPP_SETTINGS_KEY = "mybot.whatsappSettings";
         const defaultWhatsAppSettings = {
             privacyMode: false,
@@ -1038,6 +1044,42 @@
             dot.title = isOnline ? "Online" : "Offline";
         }
         
+        function registerPWA() {
+            if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+            }
+
+            window.addEventListener("beforeinstallprompt", event => {
+                event.preventDefault();
+                deferredInstallPrompt = event;
+                const button = el("installPwaButton");
+                if (button) {
+                    button.classList.remove("hidden");
+                    button.classList.add("flex");
+                }
+            });
+
+            window.addEventListener("appinstalled", () => {
+                deferredInstallPrompt = null;
+                const button = el("installPwaButton");
+                if (button) button.classList.add("hidden");
+                showToast("WA Bot installed as an app", "success");
+            });
+        }
+
+        async function installPWA() {
+            if (!deferredInstallPrompt) {
+                showToast("Use your browser menu to install this app", "info");
+                return;
+            }
+
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice.catch(() => null);
+            deferredInstallPrompt = null;
+            const button = el("installPwaButton");
+            if (button) button.classList.add("hidden");
+        }
+
         function readWhatsAppSettings() {
             try {
                 return {
@@ -1210,10 +1252,12 @@
         function checkAuth() {
             if (sessionStorage.getItem("adminAuth") !== "true") {
                 el("loginGate").classList.remove("hidden");
+                el("loginGate").classList.add("flex");
                 el("adminDashboard").classList.add("hidden");
                 return;
             }
             el("loginGate").classList.add("hidden");
+            el("loginGate").classList.remove("flex");
             el("unauthorizedScreen").classList.add("hidden");
             el("adminDashboard").classList.remove("hidden");
             initAdminConsole();
@@ -1247,6 +1291,7 @@
         function retryLogin() {
             el("unauthorizedScreen").classList.add("hidden");
             el("loginGate").classList.remove("hidden");
+            el("loginGate").classList.add("flex");
             el("adminPassword").value = "";
         }
         
@@ -1256,6 +1301,7 @@
         }
         
         function initAdminConsole() {
+            registerPWA();
             const input = el("msg-input");
             input?.addEventListener("keydown", handleComposerKeydown);
             input?.addEventListener("input", () => {
@@ -1265,6 +1311,7 @@
             updateComposerState();
             loadWhatsAppSettings();
             bindContextMenuListeners();
+            bindSwipeReply();
 
             if (typeof io !== "undefined") {
                 try {
@@ -1640,7 +1687,7 @@
                 return `
                     <div class="flex flex-col w-full ${self ? "items-end" : "items-start"}">
                         <div class="max-w-[85%] sm:max-w-[70%]">
-                            <div class="message-bubble group px-4 py-2.5 text-xs leading-relaxed shadow-md rounded-xl ${self ? "bg-anon-msgOut text-slate-100 rounded-tr-none border border-emerald-600/30" : "bg-anon-msgIn text-slate-100 rounded-tl-none border border-slate-700/40"}" oncontextmenu='openMessageContextMenu(${messagePayload}, event); return false;'>
+                            <div class="message-bubble group px-4 py-2.5 text-xs leading-relaxed shadow-md rounded-xl ${self ? "bg-anon-msgOut text-slate-100 rounded-tr-none border border-emerald-600/30" : "bg-anon-msgIn text-slate-100 rounded-tl-none border border-slate-700/40"}" data-swipe-reply="true" data-swipe-direction="${self ? "left" : "right"}" data-reply-payload="${escapeAttr(replyPayload)}" oncontextmenu='openMessageContextMenu(${messagePayload}, event); return false;'>
                                 ${!self ? `<div class="text-[10px] font-bold text-anon-accent mb-1 truncate">${escapeHtml(sender)}</div>` : ""}
                                 ${quoted}${media}
                                 ${ String(m.text).startsWith('[Video]') || String(m.text).startsWith('[Image]')  || String(m.text).startsWith('[Audio') ? "" : `<div class="break-words font-sans text-slate-100 privacy-sensitive">${renderSafeMessage(m.text)}</div>`}
@@ -2129,6 +2176,85 @@
             event?.preventDefault?.();
             event?.stopPropagation?.();
             positionContextMenu(el("chatContextMenu"), event?.clientX || 12, event?.clientY || 12);
+        }
+
+        function bindSwipeReply() {
+            const container = el("chatMessagesContainer");
+            if (!container || container.dataset.swipeBound === "true") return;
+            container.dataset.swipeBound = "true";
+
+            let gesture = null;
+            let suppressClickUntil = 0;
+            const threshold = 58;
+            const maxDistance = 96;
+
+            const resetBubble = bubble => {
+                if (!bubble) return;
+                bubble.style.transform = "";
+                bubble.classList.remove("swipe-dragging", "swipe-ready");
+            };
+
+            container.addEventListener("pointerdown", event => {
+                if (event.pointerType === "mouse") return;
+                const bubble = event.target.closest(".message-bubble[data-swipe-reply=\"true\"]");
+                const payload = bubble?.dataset.replyPayload || "";
+                if (!bubble || !payload) return;
+
+                gesture = {
+                    bubble,
+                    pointerId: event.pointerId,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    direction: bubble.dataset.swipeDirection === "left" ? -1 : 1,
+                    moved: false
+                };
+                bubble.setPointerCapture?.(event.pointerId);
+            });
+
+            container.addEventListener("pointermove", event => {
+                if (!gesture || event.pointerId !== gesture.pointerId) return;
+                const rawX = (event.clientX - gesture.startX) * gesture.direction;
+                const rawY = Math.abs(event.clientY - gesture.startY);
+                if (!gesture.moved && rawY > 12 && rawY > rawX) {
+                    resetBubble(gesture.bubble);
+                    gesture = null;
+                    return;
+                }
+                if (rawX <= 0 || rawX < rawY) return;
+
+                gesture.moved = true;
+                event.preventDefault();
+                const distance = Math.min(maxDistance, rawX * 0.7);
+                gesture.bubble.classList.add("swipe-dragging");
+                gesture.bubble.style.transform = `translateX(${gesture.direction * distance}px)`;
+                gesture.bubble.classList.toggle("swipe-ready", distance >= threshold);
+            }, { passive: false });
+
+            const finish = event => {
+                if (!gesture || (event.pointerId != null && event.pointerId !== gesture.pointerId)) return;
+                const current = gesture;
+                const distance = Math.max(0, (event.clientX - current.startX) * current.direction);
+                const ready = current.moved && distance * 0.7 >= threshold;
+                const payload = current.bubble.dataset.replyPayload || "";
+                resetBubble(current.bubble);
+                gesture = null;
+
+                if (!ready) return;
+                try {
+                    const reply = JSON.parse(payload);
+                    selectReplyMessage(reply);
+                    suppressClickUntil = Date.now() + 400;
+                } catch {}
+            };
+
+            container.addEventListener("pointerup", finish);
+            container.addEventListener("pointercancel", finish);
+            document.addEventListener("click", event => {
+                if (Date.now() >= suppressClickUntil) return;
+                event.preventDefault();
+                event.stopPropagation();
+                suppressClickUntil = 0;
+            }, true);
         }
 
         function bindContextMenuListeners() {
