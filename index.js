@@ -19,6 +19,69 @@ const io = new Server(server)
 app.use(express.json({ limit: "25mb" }))
 app.use(express.static("public"))
 
+async function migrateContacts() {
+    await run(`
+        CREATE TABLE IF NOT EXISTS contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            phone TEXT,
+            email TEXT,
+            created_at INTEGER DEFAULT (strftime('%s','now')),
+            UNIQUE(name, phone)
+        )
+    `)
+}
+
+
+app.post("/api/contacts", async (req, res) => {
+    try {
+        const contacts = Array.isArray(req.body.contacts)
+            ? req.body.contacts
+            : []
+
+        let saved = 0
+
+        for (const contact of contacts) {
+            const name = Array.isArray(contact.name)
+                ? String(contact.name[0] || "").trim()
+                : String(contact.name || "").trim()
+
+            if (!name) continue
+
+            const phones = Array.isArray(contact.tel)
+                ? contact.tel.map(v => String(v || "").trim()).filter(Boolean)
+                : []
+
+            const emails = Array.isArray(contact.email)
+                ? contact.email.map(v => String(v || "").trim()).filter(Boolean)
+                : []
+
+            const max = Math.max(phones.length, emails.length, 1)
+
+            for (let i = 0; i < max; i++) {
+                const phone = phones[i] || ""
+                const email = emails[i] || ""
+
+                await run(`
+                    INSERT OR IGNORE INTO contacts (name, phone, email)
+                    VALUES (?, ?, ?)
+                `, [name, phone, email])
+
+                saved++
+            }
+        }
+
+        res.json({
+            success: true,
+            imported: contacts.length,
+            saved
+        })
+    } catch (err) {
+        console.error("[CONTACTS]", err.message)
+        res.status(500).json({ error: err.message })
+    }
+})
+
 async function migrateDatabaseSchema() {
     const columnsToMigrate = [
         `ALTER TABLE messages ADD COLUMN channel_name TEXT`,
@@ -100,6 +163,9 @@ app.get("/api/health", (req, res) => {
 
 app.get("/admin", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "admin.html"))
+})
+app.get("/contacts", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "contacts.html"))
 })
 
 app.get("/api/sessions", (req, res) => {
@@ -674,6 +740,7 @@ const PORT = process.env.PORT || 3000
 server.listen(PORT, async () => {
     await migrateDatabaseSchema()
     await restoreSessions()
+    migrateContacts()
     console.log(`Server running on port ${PORT}`)
 })
 

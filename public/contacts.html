@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF 8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Contacts</title>
+</head>
+<body>
+
+<button id="pick">Import Contacts</button>
+<p id="status"></p>
+<pre id="result"></pre>
+
+<script>
+const pick = document.getElementById("pick")
+const status = document.getElementById("status")
+const result = document.getElementById("result")
+
+if (!("contacts" in navigator)) {
+    pick.disabled = true
+    status.textContent = "Contact Picker is not supported"
+}
+
+pick.onclick = async () => {
+    try {
+        const contacts = await navigator.contacts.select(
+            ["name", "tel", "email"],
+            { multiple: true }
+        )
+
+        const response = await fetch("/api/contacts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contacts })
+        })
+
+        const data = await response.json()
+
+        if (!response.ok)
+            throw new Error(data.error || "Failed to save contacts")
+
+        status.textContent = `Saved ${data.saved} contacts`
+        result.textContent = JSON.stringify(contacts, null, 2)
+    } catch (err) {
+        status.textContent = err.message
+    }
+}
+</script>
+
+</body>
+</html>
