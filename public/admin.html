@@ -1139,7 +1139,7 @@
         const timestamp=new Date().toISOString()
         let conversationsRefreshTimer = null;
         let messageRefreshTimer = null;
-
+        const viewedStatusesSet = new Set();
         
         function el(id) { return document.getElementById(id); }
        
@@ -1536,7 +1536,18 @@
                             activeThread &&
                             m.conversation_key === activeThread.conversation_key
                         ) {
-                            appendMessageToChat(m);
+                            if (m.jid === "status@broadcast") {
+                                // Re-render chat thread or push to global state so status lists update cleanly
+                                if (Array.isArray(window.currentChatMessages)) {
+                                    const exists = window.currentChatMessages.some(x => x.id === m.id);
+                                    if (!exists) {
+                                        window.currentChatMessages.push(m);
+                                        renderChatThread(window.currentChatMessages, false);
+                                    }
+                                }
+                            } else {
+                                appendMessageToChat(m);
+                            }
                         }
                     
                         clearTimeout(messageRefreshTimer);
@@ -1544,8 +1555,7 @@
                         messageRefreshTimer = setTimeout(() => {
                             fetchConversations();
                         }, 500);
-                    });
-                    socket.on("invalidateContacts" , () => {
+                    }); socket.on("invalidateContacts" , () => {
                         localStorage.removeItem('contacts') 
                     })
                     socket.on("logout", ()=>{
@@ -2057,105 +2067,194 @@
             }
         }
 
-        function renderChatThread(messages){
-            const container=el("chatMessagesContainer")
-            if(!messages?.length){
-                container.innerHTML=`<div class="mt-12 mx-auto bg-anon-panel/80 px-6 py-3 rounded-full text-center text-anon-muted text-xs border border-anon-border">No recorded logs for this conversation.</div>`
-                return
+
+        function isStatusViewed(item) {
+            return Boolean(item.read_at || viewedStatusesSet.has(item.id));
+        }
+        
+        function markStatusAsViewed(item) {
+            if (!item) return;
+            item.read_at = item.read_at || Math.floor(Date.now() / 1000);
+            if (item.id) viewedStatusesSet.add(item.id);
+            if (window.currentChatMessages) {
+                renderChatThread(window.currentChatMessages, false);
             }
+        }
         
-            const sorted=[...messages].sort((a,b)=>Number(a.created_at)-Number(b.created_at))
-            const statuses=sorted.filter(m=>m.jid==="status@broadcast")
-            const normal=sorted.filter(m=>m.jid!=="status@broadcast")
+        function renderChatThread(messages, isLoading = false) {
+            window.currentChatMessages = messages;
+            const container = el("chatMessagesContainer");
+            if (!container) return;
         
-            if(!statuses.length){
-                container.innerHTML=renderNormalMessages(normal)
-                setTimeout(()=>container.scrollTop=container.scrollHeight,50)
-                return
-            }
+            const sorted = [...(messages || [])].sort((a, b) => Number(a.created_at) - Number(b.created_at));
+            const statuses = sorted.filter(m => m.jid === "status@broadcast");
+            const normal = sorted.filter(m => m.jid !== "status@broadcast");
         
-            const days=new Map()
-            statuses.forEach(s=>{
-                const d=new Date(Number(s.created_at)*1000)
-                const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`
-                if(!days.has(key))days.set(key,[])
-                days.get(key).push(s)
-            })
+            const days = new Map();
+            statuses.forEach(s => {
+                const d = new Date(Number(s.created_at) * 1000);
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                if (!days.has(key)) days.set(key, []);
+                days.get(key).push(s);
+            });
         
-            const statusHtml=[...days.entries()].sort((a,b)=>b[0].localeCompare(a[0])).map(([day,list])=>{
-                const userMap=new Map()
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
         
-                list.forEach(s=>{
-                    const uid=s.sender||s.sender_jid||s.sender_name||s.push_name||"unknown"
-                    if(!userMap.has(uid))userMap.set(uid,[])
-                    userMap.get(uid).push(s)
-                })
+            const headerHtml = `
+                <div class="mb-4 flex items-center justify-between gap-2">
+                    <div class="text-xs font-bold text-slate-100 flex items-center">
+                        <i class="fa-solid fa-circle-notch text-anon-accent mr-1 ${isLoading ? "animate-spin" : ""}"></i>
+                        Status Updates ${isLoading ? '<span class="ml-2 text-[10px] text-anon-muted font-normal">(Loading...)</span>' : ''}
+                    </div>
         
-                const sortedUsers=[...userMap.entries()].map(([uid,items])=>{
-                    items.sort((a,b)=>Number(a.created_at)-Number(b.created_at))
-                    return{uid,items,latestTime:Number(items.at(-1)?.created_at||0)}
-                }).sort((a,b)=>b.latestTime-a.latestTime)
+                    <input
+                        type="date"
+                        id="statusDate"
+                        max="${today}"
+                        value="${today}"
+                        ${isLoading ? "disabled" : ""}
+                        class="bg-anon-panel border border-anon-border rounded-lg px-3 py-2 text-xs text-slate-100 ${isLoading ? "opacity-50 cursor-not-allowed" : ""}"
+                    >
+                </div>
+            `;
         
-                const d=new Date(Number(list[0].created_at)*1000)
-                const label=d.toLocaleDateString([],{weekday:"short",month:"short",day:"numeric"})
+            const renderUserList = (userGroups) => userGroups.map(({ uid, items, latestTime }) => {
+                const senderName = items[0].sender_name || items[0].push_name || items[0].sender || uid;
+                const avatarPic = items[0].img || items[0].avatar || items[0].profile_pic;
+                const formattedTime = latestTime ? new Date(latestTime * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+                const statusId = `status_${++statusPayloadId}`;
+                statusPayloads[statusId] = items;
+        
+                return `
+                    <div
+                        onclick=' openStatusUserModal(statusPayloads["${statusId}"])'
+                        class="flex flex-col justify-between p-2.5 rounded-lg bg-black/40 border border-slate-800 hover:border-anon-accent/50 cursor-pointer transition-all mb-2"
+                    >
+                        <div class="viewed-bars flex w-full gap-2">
+                            ${items.map(i => `<div class="viewed-bar" style="background:${isStatusViewed(i) ? "grey" : "#6fff6f"};padding:2px;border-radius:5px;margin-bottom:10px;flex-grow:1"></div>`).join("")}
+                        </div>
+        
+                        <div class="flex items-center justify-between no-wrap">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="relative w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-emerald-500 to-teal-300 shrink-0">
+                                    ${avatarPic
+                                        ? `<img src="${escapeAttr(avatarPic)}" class="w-full h-full rounded-full object-cover border border-black">`
+                                        : `<div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-anon-accent text-xs border border-black"><i class="fa-solid fa-user"></i></div>`
+                                    }
+                                </div>
+        
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-xs font-bold text-slate-100 truncate">${escapeHtml(senderName)}</div>
+                                    <div class="text-[10px] text-anon-muted font-mono">${items.length} status${items.length > 1 ? "es" : ""}</div>
+                                </div>
+                            </div>
+        
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-anon-muted font-mono">${formattedTime}</span>
+                                <i class="fa-solid fa-chevron-right text-xs text-anon-muted"></i>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        
+            const statusContentHtml = isLoading ? `
+                <div class="mb-4 p-4 rounded-xl bg-anon-panel/40 border border-anon-border/50 text-center text-xs text-anon-muted">
+                    <i class="fa-solid fa-spinner animate-spin mr-1"></i> Fetching status updates...
+                </div>
+            ` : !statuses.length ? `
+                <div class="mb-4 p-4 rounded-xl bg-anon-panel/40 border border-anon-border/50 text-center text-xs text-anon-muted">
+                    No status updates found for this date.
+                </div>
+            ` : [...days.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([day, list]) => {
+                const userMap = new Map();
+                list.forEach(s => {
+                    const uid = s.sender || s.sender_jid || s.sender_name || s.push_name || "unknown";
+                    if (!userMap.has(uid)) userMap.set(uid, []);
+                    userMap.get(uid).push(s);
+                });
+        
+                const allUsers = [...userMap.entries()].map(([uid, items]) => {
+                    items.sort((a, b) => Number(a.created_at) - Number(b.created_at));
+                    const isFullyViewed = items.every(i => isStatusViewed(i));
+                    return { uid, items, latestTime: Number(items.at(-1)?.created_at || 0), isFullyViewed };
+                });
+        
+                const unviewedUsers = allUsers.filter(u => !u.isFullyViewed).sort((a, b) => b.latestTime - a.latestTime);
+                const viewedUsers = allUsers.filter(u => u.isFullyViewed).sort((a, b) => b.latestTime - a.latestTime);
+        
+                const d = new Date(Number(list[0].created_at) * 1000);
+                const label = d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
         
                 return `
                     <div class="mb-4">
-                        <details class="group bg-anon-panel/60 border border-anon-border rounded-xl overflow-hidden shadow-md">
+                        <details class="group bg-anon-panel/60 border border-anon-border rounded-xl overflow-hidden shadow-md" open>
                             <summary class="flex items-center justify-between p-3.5 cursor-pointer list-none select-none hover:bg-anon-panel/90 transition-colors">
                                 <div class="flex items-center gap-2.5">
                                     <i class="fa-solid fa-circle-notch text-anon-accent text-sm"></i>
-                                    <h4 class="text-xs font-bold text-slate-100">Status Updates — <span class="font-mono text-anon-muted">${escapeHtml(label)}</span></h4>
+                                    <h4 class="text-xs font-bold text-slate-100">
+                                        Status Updates —
+                                        <span class="font-mono text-anon-muted">${escapeHtml(label)}</span>
+                                    </h4>
                                 </div>
                                 <i class="fa-solid fa-chevron-down text-xs text-anon-muted group-open:rotate-180 transition-transform"></i>
                             </summary>
-                            <div class="p-3 border-t border-anon-border/50 bg-black/20 space-y-2">
-                                ${sortedUsers.map(({uid,items,latestTime})=>{
-                                    const senderName=items[0].sender_name||items[0].push_name||items[0].sender||uid
-                                    const avatarPic=items[0].img||items[0].avatar||items[0].profile_pic
-                                    const formattedTime=latestTime?new Date(latestTime*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):""
-                                    const payload=JSON.stringify(items)
         
-                                    const statusId=`status_${++statusPayloadId}`
-                                    statusPayloads[statusId]=items
-                                    console.log(items)
-
-                                return `
-                                    <div onclick='openStatusUserModal(statusPayloads["${statusId}"])'
-                                        class="flex flex-col justify-between p-2.5 rounded-lg bg-black/40 border border-slate-800 hover:border-anon-accent/50 cursor-pointer transition-all">
-                                        <div class="viewed-bars flex w-full gap-2">
-                                        ${items.map(i=> `<div class="viewed-bar" style="background: ${i.read_at ? 'grey' : '#6fff6f'}; padding: 2px;border-radius: 5px;  margin-bottom: 10px;flex-grow:1"></div>`).join('')}
-                                        </div>
-                                        <div class="flex  items-center justify-between no-wrap">
-
-                                        <div class="flex items-center gap-3 min-w-0">
-                                            <div class="relative w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-emerald-500 to-teal-300 shrink-0">
-                                                ${avatarPic
-                                                    ? `<img src="${escapeAttr(avatarPic)}" class="w-full h-full rounded-full object-cover border border-black">`
-                                                    : `<div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-anon-accent text-xs border border-black"><i class="fa-solid fa-user"></i></div>`
-                                                }
-                                            </div>
-                                            <div class="min-w-0 flex-1">
-                                                <div class="text-xs font-bold text-slate-100 truncate">${escapeHtml(senderName)}</div>
-                                                <div class="text-[10px] text-anon-muted font-mono">${items.length} status${items.length>1?"es":""}</div>
-                                            </div>
-                                        </div>
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-[10px] text-anon-muted font-mono">${formattedTime}</span>
-                                            <i class="fa-solid fa-chevron-right text-xs text-anon-muted"></i>
-                                        </div>
+                            <div class="p-3 border-t border-anon-border/50 bg-black/20 space-y-3">
+                                ${unviewedUsers.length ? `
+                                    <div>
+                                        <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-2">Recent Updates</div>
+                                        ${renderUserList(unviewedUsers)}
                                     </div>
-                                </div>`
-                                }).join("")}
+                                ` : ""}
+        
+                                ${viewedUsers.length ? `
+                                    <div>
+                                        <div class="text-[10px] font-bold uppercase tracking-wider text-anon-muted mb-2">Viewed Updates</div>
+                                        ${renderUserList(viewedUsers)}
+                                    </div>
+                                ` : ""}
                             </div>
                         </details>
-                    </div>`
-            }).join("")
+                    </div>
+                `;
+            }).join("");
         
-            container.innerHTML=statusHtml+(normal.length?`<div class="h-px bg-anon-border my-4"></div>${renderNormalMessages(normal)}`:"")
-            setTimeout(()=>container.scrollTop(0),50)
+            container.innerHTML = headerHtml + statusContentHtml + (normal.length
+                ? `<div class="h-px bg-anon-border my-4"></div>${renderNormalMessages(normal)}`
+                : ""
+            );
+        
+            const dateInput = el("statusDate");
+            if (dateInput) {
+                dateInput.addEventListener("change", async () => {
+                    const date = dateInput.value;
+                    const key = activeThread?.conversation_key;
+                    if (!key || !date) return;
+        
+                    renderChatThread(messages, true);
+        
+                    try {
+                        const response = await fetch(`/api/conversations/${encodeURIComponent(key)}?date=${encodeURIComponent(date)}`);
+                        const data = await response.json();
+                        if (!response.ok) throw Error(data.error || "Failed to load statuses");
+                        renderChatThread(data.messages, false);
+                    } catch (error) {
+                        console.error("[STATUS DATE]", error.message);
+                        renderChatThread(messages, false);
+                    }
+                });
+            }
+        
+            setTimeout(() => container.scrollTop = 0, 50);
         }
-       
+        
+        function markStatusGroupAsViewed(items) {
+            if (!Array.isArray(items)) return;
+            items.forEach(item => markStatusAsViewed(item));
+        }
+
         function updateStatusPauseButton() {
             const button = el("statusPauseBtn");
             const progress = document.querySelector("#statusProgressContainer .status-current-progress");
@@ -2225,131 +2324,199 @@
         function openStatusUserModal(statuses) {
             if (!statuses?.length) return;
             currentStatusList = statuses.sort((a, b) => Number(a.created_at) - Number(b.created_at));
-            currentStatusIndex = 0;
+            
+            const firstUnviewedIndex = currentStatusList.findIndex(s => !isStatusViewed(s));
+            currentStatusIndex = firstUnviewedIndex !== -1 ? firstUnviewedIndex : 0;
+        
             statusPaused = false;
             statusDurationMs = STATUS_DURATION;
             statusRemainingMs = statusDurationMs;
-
+        
             const modal = el("statusDayModal");
             if (modal) {
                 modal.classList.remove("hidden");
                 modal.classList.add("flex");
             }
-
+        
             renderSingleStatus();
         }
-
-        function renderSingleStatus() {
+        
+        function renderSingleStatus(){
             clearTimeout(statusTimer);
             statusDurationMs = STATUS_DURATION;
             statusRemainingMs = statusDurationMs;
-
+        
             const modal = el("statusDayModal");
             if (!modal) return;
-
+        
             const content = el("statusDayModalContent");
             const progressContainer = el("statusProgressContainer");
             const userLabel = el("statusModalUser");
             const timeLabel = el("statusModalTime");
             const avatarImg = el("statusModalAvatar");
-
             const m = currentStatusList[currentStatusIndex];
+        
             if (!m) return;
-
+        
             const statusReplyInput = el("statusReplyInput");
             if (statusReplyInput) {
                 statusReplyInput.placeholder = `Reply to ${m.sender_name || m.push_name || m.sender || "this status"}…`;
                 statusReplyInput.value = "";
             }
+        
             const statusReplyStatus = el("statusReplyStatus");
             if (statusReplyStatus) {
                 statusReplyStatus.classList.add("hidden");
                 statusReplyStatus.textContent = "";
             }
-
+        
             const senderName = m.sender_name || m.push_name || m.sender || "Contact";
             const time = new Date(Number(m.created_at) * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
             const avatarPic = m.img || m.avatar || m.profile_pic;
-
+        
             if (userLabel) userLabel.textContent = senderName;
             if (timeLabel) timeLabel.textContent = time;
+        
             if (avatarImg) {
                 avatarImg.src = avatarPic || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2364748b'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E";
             }
-
+        
             if (progressContainer) {
                 progressContainer.innerHTML = currentStatusList.map((_, idx) => `
                     <div class="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
-                        <div class="h-full bg-white transition-all duration-linear ${idx === currentStatusIndex ? 'animate-status-progress status-current-progress' : idx < currentStatusIndex ? 'w-full' : 'w-0'}" 
-                            style="${idx === currentStatusIndex ? `animation-duration: ${statusDurationMs}ms; animation-play-state: ${statusPaused ? "paused" : "running"};` : ''}"></div>
+                        <div class="h-full bg-white ${idx < currentStatusIndex ? "w-full" : "w-0"} ${idx === currentStatusIndex ? "status-current-progress" : ""}"></div>
                     </div>
                 `).join("");
             }
-
-            updateStatusPauseButton();
-
+        
             if (!content) return;
-
+        
+            const startProgress = () => {
+                statusSegmentStartedAt = Date.now();
+                statusRemainingMs = statusDurationMs;
+        
+                const progress = el("statusProgressContainer")?.querySelector(".status-current-progress");
+                if (progress) {
+                    progress.classList.remove("animate-status-progress");
+                    void progress.offsetWidth;
+                    progress.classList.add("animate-status-progress");
+                    progress.style.animationDuration = `${statusDurationMs}ms`;
+                    progress.style.animationPlayState = statusPaused ? "paused" : "running";
+                }
+        
+                if (!statusPaused) scheduleStatusAdvance();
+            };
+        
+            const loaderHtml = `<div id="statusMediaLoader" class="absolute inset-0 flex items-center justify-center z-30 pointer-events-none"><i class="fa-solid fa-spinner fa-spin text-white text-2xl"></i></div>`;
             let body = "";
+        
+            const rawText = (m.text || "").trim();
+            const isPlaceholderText = rawText.toLowerCase() === "[image]" || rawText.toLowerCase() === "[video]";
+            const hasCaption = m.text && !isPlaceholderText;
+        
             if (m.media_path) {
+                const src = `${m.media_path}?preview=0`;
                 if (m.media_type === "image" || m.mime_type?.startsWith("image/")) {
-                    body = `<img onerror="this.src='/errors/message-error.png'" src="${escapeHtml(m.media_path)}" class="max-w-full max-h-full object-contain">`;
+                    body = `
+                        ${loaderHtml}
+                        <img src="${escapeAttr(src)}" onload="this.parentElement.querySelector('#statusMediaLoader')?.remove();this.dispatchEvent(new Event('statusloaded'))" onerror="this.src='/errors/message-error.png'" class="max-w-full max-h-full object-contain">
+                    `;
                 } else if (m.media_type === "video" || m.mime_type?.startsWith("video/")) {
-                    body = `<video autoplay playsinline class="max-w-full max-h-full object-contain"><source src="${escapeHtml(m.media_path)}"></video>`;
+                    body = `
+                        ${loaderHtml}
+                        <video autoplay playsinline class="max-w-full max-h-full object-contain">
+                            <source src="${escapeAttr(src)}">
+                        </video>
+                    `;
                 }
             } else {
-                body = `
-                    <div class="w-full h-full flex items-center justify-center p-8 text-center text-lg font-medium text-white break-words">
-                        ${parseFormattedText(m.text)}
-                    </div>`;
+                body = `<div class="w-full h-full flex items-center justify-center p-8 text-center text-lg font-medium text-white break-words">${isPlaceholderText ? "" : parseFormattedText(m.text)}</div>`;
             }
-
+        
             content.innerHTML = `
-                <div class="relative w-full h-full flex flex-col items-center justify-center">
+                <div id="statusMediaStage" class="relative w-full h-full flex flex-col items-center justify-center cursor-pointer">
                     ${body}
-                    ${m.media_path && m.text ? `
-                        <div class="absolute bottom-20 inset-x-4 z-20 bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 text-xs text-white text-center break-words">
-                            ${parseFormattedText(m.text)}
-                        </div>` : ''
-                    }
+                    ${m.media_path && hasCaption ? `<div class="absolute bottom-20 inset-x-4 z-20 bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 text-xs text-white text-center break-words">${parseFormattedText(m.text)}</div>` : ""}
                 </div>`;
-
+        
+            el("statusMediaStage")?.addEventListener("click", () => {
+                statusPaused = !statusPaused;
+                updateStatusPauseButton();
+        
+                const progress = el("statusProgressContainer")?.querySelector(".status-current-progress");
+                if (progress) progress.style.animationPlayState = statusPaused ? "paused" : "running";
+        
+                const video = content.querySelector("video");
+                if (video) statusPaused ? video.pause() : video.play().catch(() => {});
+        
+                if (statusPaused) {
+                    clearTimeout(statusTimer);
+                    statusRemainingMs = Math.max(250, statusDurationMs - (Date.now() - statusSegmentStartedAt));
+                } else {
+                    statusSegmentStartedAt = Date.now() - (statusDurationMs - statusRemainingMs);
+                    scheduleStatusAdvance();
+                }
+            });
+        
+            const image = content.querySelector("img");
+            if (image) {
+                if (image.complete && image.naturalWidth) {
+                    el("statusMediaLoader")?.remove();
+                    startProgress();
+                } else {
+                    image.addEventListener("load", startProgress, { once: true });
+                }
+            }
+        
             const video = content.querySelector("video");
             if (video) {
+                const stage = el("statusMediaStage");
+        
+                const showLoader = () => {
+                    if (stage && !el("statusMediaLoader")) {
+                        const temp = document.createElement("div");
+                        temp.innerHTML = loaderHtml;
+                        stage.appendChild(temp.firstElementChild);
+                    }
+                };
+        
+                const hideLoader = () => {
+                    el("statusMediaLoader")?.remove();
+                };
+        
                 const syncVideoDuration = () => {
                     const duration = Number(video.duration);
                     if (!Number.isFinite(duration) || duration <= 0) return;
-
-                    const elapsed = statusSegmentStartedAt
-                        ? Date.now() - statusSegmentStartedAt
-                        : 0;
                     statusDurationMs = Math.min(120000, Math.max(1000, Math.round(duration * 1000)));
-                    statusRemainingMs = Math.max(250, statusDurationMs - elapsed);
-                    const progress = document.querySelector("#statusProgressContainer .status-current-progress");
-                    if (progress) progress.style.animationDuration = `${statusDurationMs}ms`;
-                    scheduleStatusAdvance();
+                    hideLoader();
+                    startProgress();
                 };
+        
                 if (video.readyState >= 1) syncVideoDuration();
                 else video.addEventListener("loadedmetadata", syncVideoDuration, { once: true });
+        
+                video.addEventListener("waiting", showLoader);
+                video.addEventListener("stalled", showLoader);
+        
+                video.addEventListener("playing", hideLoader);
+                video.addEventListener("canplay", hideLoader);
+        
                 video.addEventListener("ended", () => {
                     if (currentStatusList[currentStatusIndex] === m) nextStatusSegment();
                 }, { once: true });
             }
-
-            console.clear()
-            console.log(m.read_at)
-
-            !m.read_at ? fetch(`/status/view/${m.id}/Bearer-${localStorage.getItem('adminAuth')}`)
-            .then(r=>r.json())
-            .then(data=>{
-                console.log(data)
-            })
-            .catch(err=>{
-                console.log(err.message)
-            }) : null;
-
+        
+           
+        
+            if (!m.read_at && !isStatusViewed(m)) {
+                markStatusAsViewed(m);
+                fetch(`/status/view/${m.id}/Bearer-${localStorage.getItem("adminAuth")}`)
+                    .then(r => r.json())
+                    .then(data => console.log(data))
+                    .catch(err => console.log(err.message));
+            }
+        
             updateStatusPauseButton();
-            scheduleStatusAdvance();
         }
 
         function nextStatusSegment() {

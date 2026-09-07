@@ -4,6 +4,7 @@ const express = require("express")
 const http = require("http")
 const { Server } = require("socket.io")
 const path = require("path")
+const sharp = require("sharp")
 
 const { pair, logout, restoreSessions, getSessions, getSession, getPresence, isOnlinePresence, requestPresence, setSessionEventEmitter } = require("./lib/sessions")
 const { refreshConversationAvatar } = require("./lib/avatar-refresh")
@@ -694,37 +695,51 @@ app.post("/api/conversations/:key/read", async (req, res) => {
 app.get("/api/conversations/:key",async(req,res)=>{
     try{
         const key=decodeURIComponent(req.params.key)
-        let rows=await all(`
-            SELECT * FROM messages
-            WHERE conversation_key=?
-            ORDER BY created_at ASC,id ASC
-        `,[key])
+        const isStatus=key.endsWith(":status:status@broadcast")
+        const date=String(req.query.date||"").trim()
+
+        let rows,params=[key],condition=""
+
+        if(isStatus){
+            if(date==="previous")
+                condition=`AND date(created_at,'unixepoch','localtime')=date('now','localtime','-1 day')`
+            else if(/^\d{4}-\d{2}-\d{2}$/.test(date)){
+                condition=`AND date(created_at,'unixepoch','localtime')=?`
+                params.push(date)
+            }else
+                condition=`AND date(created_at,'unixepoch','localtime')=date('now','localtime')`
+
+            rows=await all(`
+                SELECT * FROM messages
+                WHERE conversation_key=? AND is_status=1 ${condition}
+                ORDER BY created_at ASC,id ASC
+            `,params)
+        }else{
+            rows=await all(`
+                SELECT * FROM messages
+                WHERE conversation_key=?
+                ORDER BY created_at ASC,id ASC
+            `,[key])
+        }
 
         let avatar=rows[0]||null
         const session=rows[0]?getSession(rows[0].session_id):null
 
         if(session){
-            try{
-                avatar=await refreshConversationAvatar(session,key)
-                rows=await all(`
-                    SELECT * FROM messages
-                    WHERE conversation_key=?
-                    ORDER BY created_at ASC,id ASC
-                `,[key])
-            }catch(error){
-                console.warn(`[AVATAR] Chat-open refresh failed for ${key}:`,error.message)
-            }
-
             rows=await Promise.all(rows.map(async row=>{
                 const quotedSender=String(row.quoted_sender||"").trim()
-                const quotedSenderName=quotedSender
-                    ?String(await getContactName(session,quotedSender)||"").trim()
-                    :""
 
-                return {
+                const message={
                     ...row,
-                    quoted_sender_name:quotedSenderName
+                    quoted_sender_name:quotedSender
+                        ?String(await getContactName(session,quotedSender)||"").trim()
+                        :""
                 }
+
+                if(isStatus)
+                    message.media_path=`/api/status/${row.id}`
+
+                return message
             }))
         }
 
@@ -742,7 +757,63 @@ app.get("/api/conversations/:key",async(req,res)=>{
     }
 })
 
+app.get("/api/status/:id",async(req,res)=>{
+    try{
+        const id=Number(req.params.id)
+        if(!Number.isInteger(id))
+            return res.status(400).json({error:"Invalid status ID"})
 
+        const rows=await all(`
+            SELECT media_path,media_type,mime_type,is_status
+            FROM messages
+            WHERE id=?
+            LIMIT 1
+        `,[id])
+
+        const row=rows[0]
+        if(!row||Number(row.is_status)!==1)
+            return res.status(404).json({error:"Status not found"})
+
+        if(!row.media_path)
+            return res.status(404).json({error:"Status media unavailable"})
+
+        const filePath=path.join( process.cwd(), "public", row.media_path.replace(/^[/\\]+/,"") )
+
+        if(!fs.existsSync(filePath)){
+            console.log(filePath)
+            return res.status(404).json({error:"Status media not found"})
+        }
+
+        if(req.query.preview==="0"){
+            if(row.mime_type)res.type(row.mime_type)
+            return res.sendFile(path.resolve(filePath))
+        }
+
+        if(row.media_type==="image"){
+            const buffer=await sharp(filePath)
+                .resize({
+                    width:320,
+                    height:320,
+                    fit:"inside",
+                    withoutEnlargement:true
+                })
+                .jpeg({quality:55})
+                .toBuffer()
+
+            return res.type("image/jpeg").send(buffer)
+        }
+
+        if(row.media_type==="video"){
+            return res.sendFile(path.resolve(filePath))
+        }
+
+        return res.status(404).json({error:"Unsupported status media"})
+    }catch(err){
+        console.error("[STATUS MEDIA]",err.message)
+        if(!res.headersSent)
+            res.status(500).json({error:err.message})
+    }
+})
 
 async function resolveConversationTarget(conversationKey){
     const rows=await all(`
