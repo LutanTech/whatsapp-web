@@ -23,6 +23,11 @@ const io = new Server(server)
 app.use(express.json({ limit: "25mb" }))
 app.use(express.static("public"))
 
+console.clear()
+console.log(process.env.BCK_PASS)
+console.log(process.env.ADMIN_EMAIL)
+console.log(process.env.ADMIN_PASS)
+
 async function migrateContacts() {
     await run(`
         CREATE TABLE IF NOT EXISTS contacts (
