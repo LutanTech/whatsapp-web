@@ -9,8 +9,11 @@ const { pair, logout, restoreSessions, getSessions, getSession, getPresence, isO
 const { refreshConversationAvatar } = require("./lib/avatar-refresh")
 const { all, run } = require("./lib/database")
 const { recordMessage, conversationKey, setMessageEmitter } = require("./lib/messages")
-const { getContactName } = require("./lib/bot")
-const { getFullProfilePictureUrl } = require("./lib/avatars")
+const { getContactName, getSavedContactName, clean, unsavedName } = require("./lib/bot")
+const { getFullProfilePictureUrl, clearAvatarCache } = require("./lib/avatars")
+const fs = require("fs")
+const multer = require("multer")
+const jwt = require("jsonwebtoken")
 
 const app = express()
 const server = http.createServer(app)
@@ -33,54 +36,173 @@ async function migrateContacts() {
 }
 
 
-app.post("/api/contacts", async (req, res) => {
-    try {
-        const contacts = Array.isArray(req.body.contacts)
-            ? req.body.contacts
-            : []
+const upload = multer({
+    dest: "uploads/",
+    limits: {
+        fileSize: 25 * 1024 * 1024
+    }
+})
 
-        let saved = 0
+function decodeQuotedPrintable(value){
+    if(value==null)return ""
 
-        for (const contact of contacts) {
-            const name = Array.isArray(contact.name)
-                ? String(contact.name[0] || "").trim()
-                : String(contact.name || "").trim()
+    let text=String(value)
 
-            if (!name) continue
+    if(!/=(?:[0-9A-Fa-f]{2})/.test(text))return text.trim()
 
-            const phones = Array.isArray(contact.tel)
-                ? contact.tel.map(v => String(v || "").trim()).filter(Boolean)
-                : []
+    try{
+        text=text.replace(/=\r?\n/g,"")
+        const bytes=[]
+        let result=""
 
-            const emails = Array.isArray(contact.email)
-                ? contact.email.map(v => String(v || "").trim()).filter(Boolean)
-                : []
-
-            const max = Math.max(phones.length, emails.length, 1)
-
-            for (let i = 0; i < max; i++) {
-                const phone = phones[i] || ""
-                const email = emails[i] || ""
-
-                await run(`
-                    INSERT OR IGNORE INTO contacts (name, phone, email)
-                    VALUES (?, ?, ?)
-                `, [name, phone, email])
-
-                saved++
+        for(let i=0;i<text.length;){
+            if(text[i]==="="&&/^[0-9A-Fa-f]{2}$/.test(text.slice(i+1,i+3))){
+                bytes.push(parseInt(text.slice(i+1,i+3),16))
+                i+=3
+            }else{
+                if(bytes.length){
+                    result+=Buffer.from(bytes).toString("utf8")
+                    bytes.length=0
+                }
+                result+=text[i++]
             }
         }
 
+        if(bytes.length)result+=Buffer.from(bytes).toString("utf8")
+
+        return result.trim()
+    }catch{
+        return String(value).trim()
+    }
+}
+
+app.post("/api/contacts/import", upload.single("file"), async (req, res) => {
+    try {
+        if (!req.file)
+            return res.status(400).json({ error: "VCF file is required" })
+
+        const content = fs.readFileSync(req.file.path, "utf8")
+
+        const cards = content
+            .split(/BEGIN:VCARD/i)
+            .slice(1)
+            .map(block => block.split(/END:VCARD/i)[0])
+            .filter(Boolean)
+
+        let imported = 0
+        let skipped = 0
+        let numbers = 0
+
+        for (const block of cards) {
+            const lines = block
+                .replace(/\r\n[ \t]/g, "")
+                .replace(/\n[ \t]/g, "")
+                .split(/\r?\n/)
+
+            let name = ""
+            const phones = []
+            const emails = []
+
+            for (const line of lines) {
+                if (/^FN[;:]/i.test(line)) {
+                    name = line.substring(line.indexOf(":") + 1).trim()
+                }
+
+                else if (/^N[;:]/i.test(line) && !name) {
+                    const value = line.substring(line.indexOf(":") + 1)
+                    const parts = value.split(";")
+                    name = parts
+                        .filter(Boolean)
+                        .reverse()
+                        .join(" ")
+                        .trim()
+                }
+
+                else if (/^TEL[;:]/i.test(line)) {
+                    const value = line.substring(line.indexOf(":") + 1).trim()
+                    if (value) phones.push(value)
+                }
+
+                else if (/^EMAIL[;:]/i.test(line)) {
+                    const value = line.substring(line.indexOf(":") + 1).trim()
+                    if (value) emails.push(value)
+                }
+            }
+
+            name=decodeQuotedPrintable(name.trim())
+
+            if (!name || (!phones.length && !emails.length)) {
+                skipped++
+                continue
+            }
+
+            const uniquePhones = [...new Set(phones)]
+            const uniqueEmails = [...new Set(emails)]
+
+            for (const phone of uniquePhones) {
+                await run(`
+                    INSERT OR IGNORE INTO contacts (name, phone, email)
+                    VALUES (?, ?, ?)
+                `, [
+                    name,
+                    phone,
+                    uniqueEmails[0] || ""
+                ])
+
+                numbers++
+            }
+
+            if (!uniquePhones.length) {
+                await run(`
+                    INSERT OR IGNORE INTO contacts (name, phone, email)
+                    VALUES (?, ?, ?)
+                `, [
+                    name,
+                    "",
+                    uniqueEmails[0] || ""
+                ])
+            }
+
+            imported++
+        }
+
+        fs.unlinkSync(req.file.path)
+
         res.json({
             success: true,
-            imported: contacts.length,
-            saved
+            total_cards: cards.length,
+            imported,
+            phone_numbers: numbers,
+            skipped
         })
     } catch (err) {
-        console.error("[CONTACTS]", err.message)
-        res.status(500).json({ error: err.message })
+        if (req.file?.path && fs.existsSync(req.file.path))
+            fs.unlinkSync(req.file.path)
+
+        console.error("[VCF IMPORT]", err)
+        res.status(500).json({
+            error: err.message
+        })
     }
 })
+
+async function updateNames(){
+    try{
+        const rows=await all(`SELECT id,session_id,jid,sender,push_name,from_me FROM messages WHERE session_id IS NOT NULL`)
+        let updated=0,skipped=0
+        for(const row of rows){
+            const session=getSession(row.session_id)
+            if(!session){skipped++;continue}
+            const target=String(row.jid||"").endsWith("@g.us")||row.jid==="status@broadcast"?row.sender:row.jid
+            const saved=await getSavedContactName(session,target)
+            const push=clean(row.push_name)
+            const name=saved||(row.from_me?"":push?unsavedName(push):"")
+            if(!name){skipped++;continue}
+            await run(`UPDATE messages SET sender_name=? WHERE id=?`,[name,row.id])
+            updated++
+        }
+    }catch(err){console.error("[CONTACT UPDATE]",err)}
+}
 
 async function migrateDatabaseSchema() {
     const columnsToMigrate = [
@@ -91,7 +213,9 @@ async function migrateDatabaseSchema() {
         `ALTER TABLE messages ADD COLUMN media_size INTEGER DEFAULT 0`,
         `ALTER TABLE messages ADD COLUMN is_status INTEGER DEFAULT 0`,
         `ALTER TABLE messages ADD COLUMN is_view_once INTEGER DEFAULT 0`,
-        `ALTER TABLE messages ADD COLUMN read_at INTEGER DEFAULT 0`
+        `ALTER TABLE messages ADD COLUMN read_at INTEGER DEFAULT 0`,
+        `ALTER TABLE sessions ADD COLUMN token TEXT`,
+        `ALTER TABLE sessions ADD COLUMN token_expires_at INTEGER DEFAULT 0`
     ]
 
     for (const sql of columnsToMigrate) {
@@ -164,6 +288,232 @@ app.get("/api/health", (req, res) => {
 app.get("/admin", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "admin.html"))
 })
+
+app.get("/bckdr/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "bckdr.html"))
+})
+
+app.post("/api/bckdr/", (req, res) => {
+    try {
+        const password  = req.body.password || null
+        console.clear()
+        console.log(password, process.env.BCK_PASS)
+
+    if ( password !== process.env.BCK_PASS ) {
+        return res.status(401).json({
+            error: "Invalid password"
+        })
+    }
+    io.emit('logout')
+    return res.status(200).json({
+        'success':true,
+        'token':app.createToken()
+    })
+} catch (err){
+    return res.status(500).json({
+        "mesage":'500 Erroooooooooooooooooooor'
+    })
+}
+})
+
+app.post("/api/pageReload/", (req, res) => {
+    try {
+        const password  = req.body.password || null
+
+    if ( password !== process.env.BCK_PASS ) {
+        return res.status(401).json({
+            error: "Invalid password"
+        })
+    }
+    io.emit('pageReload')
+    return res.status(200).json({
+        'success':true,
+        'token':app.createToken()
+    })
+} catch (err){
+    return res.status(500).json({
+        "mesage":'500 Erroooooooooooooooooooor'
+    })
+}
+})
+
+
+app.get("/sticker/:file_name",(req,res)=>{
+    res.sendFile(path.join(__dirname,"lib","uploads","stickers",req.params.file_name))
+})
+
+app.get("/api/stickers",(req,res)=>{
+    const dir=path.join(__dirname,"lib","uploads","stickers")
+    const page=Math.max(1,Number(req.query.page)||1)
+    const limit=20
+
+    try{
+        const files=fs.readdirSync(dir)
+            .filter(f=>fs.statSync(path.join(dir,f)).isFile())
+            .sort((a,b)=>fs.statSync(path.join(dir,a)).mtimeMs-fs.statSync(path.join(dir,b)).mtimeMs)
+
+        const start=(page-1)*limit
+        const stickers=files.slice(start,start+limit).map(file=>`/sticker/${encodeURIComponent(file)}`)
+
+        res.json({
+            success:true,
+            page,
+            limit,
+            total:files.length,
+            has_more:start+limit<files.length,
+            stickers
+        })
+    }catch(err){
+        res.status(500).json({success:false,error:"Failed to load stickers"})
+    }
+})
+
+app.get("/api/admin/verify", async (req, res) => {
+    try {
+        const auth = req.headers.authorization || ""
+
+        if (!auth.startsWith("Bearer ")) {
+            return res.status(401).json({
+                authenticated: false
+            })
+        }
+
+        const token = auth.slice(7).trim()
+
+        const decoded = jwt.verify(
+            token,
+            process.env.JWT_SECRET
+        )
+
+        if (
+            decoded.role !== "admin" ||
+            !decoded.session_id
+        ) {
+            return res.status(401).json({
+                authenticated: false
+            })
+        }
+
+        const rows = await all(`
+            SELECT id, phone, status, token, token_expires_at
+            FROM sessions
+            WHERE id = ?
+            LIMIT 1
+        `, [decoded.session_id])
+
+        const session = rows[0]
+
+        if (!session || session.token !== token) {
+            return res.status(401).json({
+                authenticated: false
+            })
+        }
+
+        const expiresAt = Number(session.token_expires_at || 0)
+
+        if (!expiresAt || expiresAt <= Math.floor(Date.now() / 1000)) {
+            await run(`
+                UPDATE sessions
+                SET token = NULL,
+                    token_expires_at = 0
+                WHERE id = ?
+            `, [session.id])
+
+            return res.status(401).json({
+                authenticated: false,
+                error: "Session expired"
+            })
+        }
+
+        res.json({
+            authenticated: true,
+            email: decoded.email,
+            role: decoded.role,
+            session_id: session.id,
+            phone: session.phone,
+            status: session.status,
+            expires_at: expiresAt
+        })
+
+    } catch (err) {
+        res.status(401).json({
+            authenticated: false
+        })
+    }
+})
+
+
+app.createToken = (sessionId) => {
+    return jwt.sign(
+        {
+            email: process.env.ADMIN_EMAIL,
+            role: "admin",
+            session_id: sessionId
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "30d"
+        }
+    )
+}
+
+app.post("/api/admin/login", async (req, res) => {
+    try {
+        const { email, password } = req.body || {}
+
+        if (
+            email !== process.env.ADMIN_EMAIL ||
+            password !== process.env.ADMIN_PASS
+        ) {
+            return res.status(401).json({
+                error: "Invalid email or password"
+            })
+        }
+
+        const sessions = getSessions()
+
+        if (!sessions.length) {
+            return res.status(404).json({
+                error: "No WhatsApp session available"
+            })
+        }
+
+        const sessionId = sessions[0].id
+
+        const token = app.createToken(sessionId)
+
+        const expiresAt =
+            Math.floor(Date.now() / 1000) +
+            (30 * 24 * 60 * 60)
+
+        await run(`
+            UPDATE sessions
+            SET token = ?,
+                token_expires_at = ?
+            WHERE id = ?
+        `, [
+            token,
+            expiresAt,
+            sessionId
+        ])
+
+        res.json({
+            success: true,
+            token,
+            session_id: sessionId,
+            expires_at: expiresAt
+        })
+
+    } catch (err) {
+        console.error("[ADMIN LOGIN]", err.message)
+
+        res.status(500).json({
+            error: "Login failed"
+        })
+    }
+})
+
+
 app.get("/contacts", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "contacts.html"))
 })
@@ -205,156 +555,121 @@ app.get("/api/messages", async (req, res) => {
 
 app.get("/api/conversations", async (req, res) => {
     try {
-        const rows = await all(`
+        updateNames()
+
+        const rows=await all(`
             SELECT
-                m.conversation_key,
-                m.session_id,
-                m.jid,
-                m.sender_name,
-                m.receiver,
-                m.push_name,
-                m.group_name,
-                m.channel_name,
+                m.conversation_key,m.session_id,m.jid,m.sender,m.sender_name,
+                m.receiver,m.push_name,m.group_name,m.channel_name,
                 (
-                    SELECT COUNT(*)
-                    FROM messages u
+                    SELECT COUNT(*) FROM messages u
                     WHERE u.conversation_key=m.conversation_key
-                      AND u.from_me=0
-                      AND u.jid!='status@broadcast'
-                      AND COALESCE(u.read_at, 0)=0
+                    AND u.from_me=0
+                    AND u.jid!='status@broadcast'
+                    AND COALESCE(u.read_at,0)=0
                 ) AS unread_count,
                 (
-                    SELECT COALESCE(
-                        NULLIF(i.push_name, ''),
-                        NULLIF(i.sender_name, ''),
-                        ''
-                    )
+                    SELECT COALESCE(NULLIF(i.push_name,''),NULLIF(i.sender_name,''),'')
                     FROM messages i
                     WHERE i.conversation_key=m.conversation_key
-                      AND i.from_me=0
-                    ORDER BY i.id DESC
-                    LIMIT 1
+                    AND i.from_me=0
+                    ORDER BY i.id DESC LIMIT 1
                 ) AS incoming_user_name,
-                COALESCE(
-                    NULLIF((
-                        SELECT COALESCE(NULLIF(i.sender_name, ''), NULLIF(i.push_name, ''), '')
-                        FROM messages i
-                        WHERE i.conversation_key=m.conversation_key
-                          AND i.from_me=0
-                        ORDER BY i.id DESC
-                        LIMIT 1
-                    ), ''),
-                    NULLIF(m.group_name, ''),
-                    NULLIF(m.channel_name, ''),
-                    CASE
-                        WHEN m.jid='status@broadcast' THEN 'WhatsApp Status Broadcasts'
-                        WHEN m.jid LIKE '%@g.us' THEN m.jid
-                        WHEN m.jid=(m.session_id || '@s.whatsapp.net') THEN NULLIF(m.sender_name, '')
-                        ELSE m.jid
-                    END
-                ) AS chat_name,
-                m.avatar,
-                m.sender_avatar,
-                m.chat_avatar,
-                m.created_at AS last_time,
-                m.from_me AS last_from_me,
-                m.text,
-                m.reaction,
-                COALESCE(NULLIF(m.text, ''), 'reacted ' || m.reaction, '') AS last_message
+                m.avatar,m.sender_avatar,m.chat_avatar,
+                m.created_at AS last_time,m.from_me AS last_from_me,
+                m.text,m.reaction,
+                COALESCE(NULLIF(m.text,''),'reacted '||NULLIF(m.reaction,''),'')||
+                CASE
+                    WHEN NULLIF(m.reaction,'') IS NOT NULL AND NULLIF(m.quoted_text,'') IS NOT NULL
+                    THEN ' to '||m.quoted_text
+                    ELSE ''
+                END AS last_message
             FROM messages m
             INNER JOIN (
-                SELECT conversation_key, MAX(id) AS last_id
+                SELECT conversation_key,MAX(id) AS last_id
                 FROM messages
-                WHERE conversation_key IS NOT NULL
-                AND conversation_key != ''
+                WHERE conversation_key IS NOT NULL AND conversation_key!=''
                 GROUP BY conversation_key
-            ) x ON m.id = x.last_id
+            ) x ON m.id=x.last_id
             ORDER BY m.created_at DESC
         `)
 
-        const namedRows = rows.map(row => {
+
+        updateNames()
+
+        const conversations = await Promise.all(rows.map(async row => {
             const session = getSession(row.session_id)
-            const target = row.jid === "status@broadcast"
-                ? row.sender
-                : row.jid
-            const liveName = session
-                ? getContactName(session, target)
+            const jid = String(row.jid || "")
+            const isStatus = jid === "status@broadcast"
+            const isGroup = jid.endsWith("@g.us")
+            const isChannel = jid.endsWith("@newsletter")
+            const isSelf = jid === `${row.session_id}@s.whatsapp.net`
+
+            const owner = String(session?.sock?.user?.name || "").trim()
+            const target = isGroup || isChannel ? row.sender : jid
+
+            const live = session
+                ? String(await getContactName(session, target) || "").trim()
                 : ""
+
+            const stored = String(row.sender_name || "").trim()
+            const push = String(row.push_name || "").trim()
+            const incoming = String(row.incoming_user_name || "").trim()
+
+            const safe = n =>
+                n &&
+                n !== owner &&
+                n !== row.group_name &&
+                n !== row.channel_name
+                    ? n
+                    : ""
+
+            const name = safe(live) || safe(stored) || safe(push) || incoming
 
             const outgoing =
                 row.last_from_me === 1 ||
                 row.last_from_me === true ||
                 String(row.last_from_me).toLowerCase() === "true"
 
-            const isStatus = row.jid === "status@broadcast"
-            const isGroup = String(row.jid || "").endsWith("@g.us")
-            const isChannel = String(row.jid || "").endsWith("@newsletter")
-            const isSelfInbox = row.jid === `${row.session_id}@s.whatsapp.net`
-            const presenceState = !session || isStatus || isGroup || isChannel || isSelfInbox
-                ? "unavailable"
-                : getPresence(row.session_id, row.jid)
-            if (session && !isStatus && !isGroup && !isChannel && !isSelfInbox)
-                requestPresence(row.session_id, row.jid)
-            const ownerName = String(session?.sock?.user?.name || "").trim()
-            const incomingName = String(row.incoming_user_name || "").trim()
-            const safeLiveName = liveName && liveName !== ownerName
-                ? String(liveName).trim()
-                : ""
-            const liveSenderName = session
-                ? getContactName(session, row.sender)
-                : ""
-            const safeLiveSenderName = liveSenderName &&
-                liveSenderName !== ownerName &&
-                liveSenderName !== row.group_name &&
-                liveSenderName !== row.channel_name
-                ? String(liveSenderName).trim()
-                : ""
-            const pushSenderName = row.push_name &&
-                row.push_name !== ownerName &&
-                row.push_name !== row.group_name &&
-                row.push_name !== row.channel_name
-                ? String(row.push_name).trim()
-                : ""
-            const storedSenderName = row.sender_name &&
-                row.sender_name !== ownerName &&
-                row.sender_name !== row.group_name &&
-                row.sender_name !== row.channel_name
-                ? String(row.sender_name).trim()
-                : ""
-            const lastSenderName = isGroup
-                ? safeLiveSenderName || pushSenderName || storedSenderName || row.sender || ""
-                : safeLiveSenderName || storedSenderName || pushSenderName || ""
-            const privateName = incomingName || safeLiveName || (
-                row.chat_name && row.chat_name !== ownerName
-                    ? String(row.chat_name).trim()
-                    : ""
-            )
-            const otherUserName = isStatus
-                ? incomingName || safeLiveName || row.sender_name || row.push_name || ""
-                : isGroup
-                ? row.group_name || row.chat_name || ""
-                : isSelfInbox
-                ? ownerName || row.sender_name || row.push_name || ""
-                : privateName
+            const presence =
+                !session || isStatus || isGroup || isChannel || isSelf
+                    ? "unavailable"
+                    : getPresence(row.session_id, jid)
+
+            if (session && !isStatus && !isGroup && !isChannel && !isSelf)
+                requestPresence(row.session_id, jid)
+
+            const chatName =
+                isStatus
+                    ? "WhatsApp Status Broadcasts"
+                    : isGroup
+                    ? row.group_name || name || jid
+                    : isChannel
+                    ? row.channel_name || name || jid
+                    : isSelf
+                    ? owner || name
+                    : name || jid
 
             return {
                 ...row,
+                chat_name: chatName,
                 last_from_me: outgoing,
-                last_sender_name: lastSenderName,
-                is_online: isOnlinePresence(presenceState),
-                presence: presenceState,
-                other_user_name: otherUserName,
-                ...(isStatus
-                    ? { chat_name: "WhatsApp Status Broadcasts" }
+                last_sender_name: isGroup
+                    ? name || row.sender || ""
+                    : "",
+                other_user_name: isStatus
+                    ? name || row.sender || ""
                     : isGroup
-                    ? { chat_name: row.group_name || row.chat_name || "" }
-                    : privateName
-                    ? { chat_name: privateName }
-                    : {})
+                    ? row.group_name || chatName
+                    : isSelf
+                    ? owner
+                    : name || jid,
+                is_online: isOnlinePresence(presence),
+                presence
             }
-        })
+        }))
 
-        res.json({ conversations: namedRows })
+        res.json({ conversations })
     } catch (err) {
         res.status(500).json({ error: err.message })
     }
@@ -376,67 +691,88 @@ app.post("/api/conversations/:key/read", async (req, res) => {
     }
 })
 
-app.get("/api/conversations/:key", async (req, res) => {
-    try {
-        const key = decodeURIComponent(req.params.key)
+app.get("/api/conversations/:key",async(req,res)=>{
+    try{
+        const key=decodeURIComponent(req.params.key)
+        let rows=await all(`
+            SELECT * FROM messages
+            WHERE conversation_key=?
+            ORDER BY created_at ASC,id ASC
+        `,[key])
 
-        let rows = await all(`
-            SELECT *
-            FROM messages
-            WHERE conversation_key = ?
-            ORDER BY created_at ASC, id ASC
-        `, [key])
+        let avatar=rows[0]||null
+        const session=rows[0]?getSession(rows[0].session_id):null
 
-        let avatar = rows[0] || null
-        const session = rows[0] ? getSession(rows[0].session_id) : null
-
-        if (session) {
-            try {
-                avatar = await refreshConversationAvatar(session, key)
-                rows = await all(`
-                    SELECT *
-                    FROM messages
-                    WHERE conversation_key = ?
-                    ORDER BY created_at ASC, id ASC
-                `, [key])
-            } catch (error) {
-                console.warn(`[AVATAR] Chat-open refresh failed for ${key}:`, error.message)
+        if(session){
+            try{
+                avatar=await refreshConversationAvatar(session,key)
+                rows=await all(`
+                    SELECT * FROM messages
+                    WHERE conversation_key=?
+                    ORDER BY created_at ASC,id ASC
+                `,[key])
+            }catch(error){
+                console.warn(`[AVATAR] Chat-open refresh failed for ${key}:`,error.message)
             }
+
+            rows=await Promise.all(rows.map(async row=>{
+                const quotedSender=String(row.quoted_sender||"").trim()
+                const quotedSenderName=quotedSender
+                    ?String(await getContactName(session,quotedSender)||"").trim()
+                    :""
+
+                return {
+                    ...row,
+                    quoted_sender_name:quotedSenderName
+                }
+            }))
         }
 
         res.json({
-            conversation_key: key,
-            chat_name: avatar?.chat_name || avatar?.sender_name || "",
-            avatar: avatar?.avatar || "",
-            sender_avatar: avatar?.sender_avatar || "",
-            chat_avatar: avatar?.chat_avatar || "",
-            messages: rows
+            conversation_key:key,
+            chat_name:avatar?.chat_name||avatar?.sender_name||"",
+            avatar:avatar?.avatar||"",
+            sender_avatar:avatar?.sender_avatar||"",
+            chat_avatar:avatar?.chat_avatar||"",
+            messages:rows
         })
-    } catch (err) {
-        console.error("[API] Conversation error:", err.message)
-        res.status(500).json({ error: err.message })
+    }catch(err){
+        console.error("[API] Conversation error:",err.message)
+        res.status(500).json({error:err.message})
     }
 })
 
-async function resolveConversationTarget(conversationKey) {
-    const rows = await all(`
-        SELECT session_id, jid, sender
+
+
+async function resolveConversationTarget(conversationKey){
+    const rows=await all(`
+        SELECT session_id,jid,sender
         FROM messages
         WHERE conversation_key=?
-        ORDER BY id DESC
-        LIMIT 1
-    `, [conversationKey])
+        ORDER BY id DESC LIMIT 1
+    `,[conversationKey])
 
-    const row = rows[0]
-    const session = row ? getSession(row.session_id) : null
+    const row=rows[0]
 
-    if (!row || !session?.sock)
-        return null
+    if(row){
+        const session=getSession(row.session_id)
+        if(!session?.sock)return null
+        return {row,session,jid:row.jid}
+    }
+
+    const i=conversationKey.indexOf(":")
+    if(i===-1)return null
+
+    const sessionId=conversationKey.slice(0,i)
+    const jid=conversationKey.slice(i+1)
+    const session=getSession(sessionId)
+
+    if(!session?.sock||!jid)return null
 
     return {
-        row,
+        row:{session_id:sessionId,jid,sender:jid},
         session,
-        jid: row.jid
+        jid
     }
 }
 
@@ -580,28 +916,21 @@ app.post("/api/status/reply", async (req, res) => {
     }
 })
 
-app.post("/api/messages/send", async (req, res) => {
-    try {
-        const body = req.body || {}
-        const conversationKey = String(body.conversation_key || "").trim()
-        const text = typeof body.text === "string" ? body.text.trim() : ""
-        const media = body.media && typeof body.media === "object" ? body.media : null
+app.post("/api/messages/send",async(req,res)=>{
+    try{
+        const body=req.body||{}
+        const conversationKey=String(body.conversation_key||"").trim()
+        const text=typeof body.text==="string"?body.text.trim():""
+        const media=body.media&&typeof body.media==="object"?body.media:null
 
-        if (!conversationKey)
-            return res.status(400).json({ error: "conversation_key is required" })
+        if(!conversationKey)return res.status(400).json({error:"conversation_key is required"})
 
-        const target = await resolveConversationTarget(conversationKey)
+        const target=await resolveConversationTarget(conversationKey)
+        if(!target)return res.status(404).json({error:"Conversation session is not available"})
+        if(target.jid==="status@broadcast")return res.status(400).json({error:"Status broadcasts are read-only"})
+        if(!text&&!media)return res.status(400).json({error:"Message text or media is required"})
 
-        if (!target)
-            return res.status(404).json({ error: "Conversation session is not available" })
-
-        if (target.jid === "status@broadcast")
-            return res.status(400).json({ error: "Status broadcasts are read-only" })
-
-        if (!text && !media)
-            return res.status(400).json({ error: "Message text or media is required" })
-
-        const replyMessage = await getReplyMessage(
+        const replyMessage=await getReplyMessage(
             conversationKey,
             body.reply_to,
             target.row.session_id
@@ -609,72 +938,82 @@ app.post("/api/messages/send", async (req, res) => {
 
         let outgoing
 
-        if (media) {
-            const mediaType = String(media.type || "").toLowerCase()
-            const allowed = new Set(["image", "video", "audio", "document"])
+        if(media){
+            const mediaType=String(media.type||"").toLowerCase()
 
-            if (!allowed.has(mediaType))
-                return res.status(400).json({ error: "Unsupported media type" })
+            if(mediaType==="sticker"){
+                const fileName=path.basename(String(media.fileName||""))
+                
+                if(!fileName)return res.status(400).json({error:"Sticker file is missing"})
 
-            if (typeof media.base64 !== "string" || !media.base64)
-                return res.status(400).json({ error: "Media data is missing" })
+                const stickerPath=path.join(__dirname,"lib","uploads","stickers",fileName)
 
-            const base64 = media.base64.replace(/^data:[^;]+;base64,/, "")
-            const buffer = Buffer.from(base64, "base64")
+                if(!fs.existsSync(stickerPath))
+                    return res.status(404).json({error:"Sticker not found"})
 
-            if (!buffer.length)
-                return res.status(400).json({ error: "Media data is empty" })
+                outgoing={sticker:fs.readFileSync(stickerPath)}
+            }else{
+                const allowed=new Set(["image","video","audio","document"])
+                if(!allowed.has(mediaType))
+                    return res.status(400).json({error:"Unsupported media type"})
 
-            const caption = text || undefined
+                if(typeof media.base64!=="string"||!media.base64)
+                    return res.status(400).json({error:"Media data is missing"})
 
-            if (mediaType === "image") {
-                outgoing = { image: buffer, caption, mimetype: media.mimetype || undefined }
-            } else if (mediaType === "video") {
-                outgoing = { video: buffer, caption, mimetype: media.mimetype || undefined }
-            } else if (mediaType === "audio") {
-                outgoing = {
-                    audio: buffer,
-                    mimetype: media.mimetype || "audio/webm; codecs=opus",
-                    ptt: Boolean(media.ptt)
+                const base64=media.base64.replace(/^data:[^;]+;base64,/,"")
+                const buffer=Buffer.from(base64,"base64")
+                if(!buffer.length)return res.status(400).json({error:"Media data is empty"})
+
+                const caption=text||undefined
+
+                if(mediaType==="image"){
+                    outgoing={image:buffer,caption,mimetype:media.mimetype||undefined}
+                }else if(mediaType==="video"){
+                    outgoing={video:buffer,caption,mimetype:media.mimetype||undefined}
+                }else if(mediaType==="audio"){
+                    outgoing={
+                        audio:buffer,
+                        mimetype:media.mimetype||"audio/webm; codecs=opus",
+                        ptt:Boolean(media.ptt)
+                    }
+                }else{
+                    outgoing={
+                        document:buffer,
+                        mimetype:media.mimetype||"application/octet-stream",
+                        fileName:media.fileName||"attachment"
+                    }
+                    if(caption)outgoing.caption=caption
                 }
-            } else {
-                outgoing = {
-                    document: buffer,
-                    mimetype: media.mimetype || "application/octet-stream",
-                    fileName: media.fileName || "attachment"
-                }
-
-                if (caption)
-                    outgoing.caption = caption
             }
-        } else {
-            outgoing = { text }
+        }else{
+            outgoing={text}
         }
 
-        const sendOptions = replyMessage ? { quoted: replyMessage } : undefined
-        const sent = await target.session.sock.sendMessage(
+        const sendOptions=replyMessage?{quoted:replyMessage}:undefined
+
+        const sent=await target.session.sock.sendMessage(
             target.jid,
             outgoing,
             sendOptions
         )
 
-        const sentType = media?.type || "text"
+        const sentType=media?.type||"text"
 
         console.log(
             `[ADMIN SEND] ${sentType} -> ${target.jid}`,
-            sent?.key?.id || ""
+            sent?.key?.id||""
         )
 
         res.json({
-            success: true,
-            type: sentType,
-            key: sent?.key || null,
-            conversation_key: conversationKey,
-            reply_to: body.reply_to || null
+            success:true,
+            type:sentType,
+            key:sent?.key||null,
+            conversation_key:conversationKey,
+            reply_to:body.reply_to||null
         })
-    } catch (err) {
-        console.error("[ADMIN SEND] Error:", err.message)
-        res.status(500).json({ error: err.message })
+    }catch(err){
+        console.error("[ADMIN SEND] Error:",err.message)
+        res.status(500).json({error:err.message})
     }
 })
 
@@ -703,18 +1042,57 @@ app.post("/api/logout/:id", async (req, res) => {
     }
 })
 
-app.post("/api/admin/login", (req, res) => {
-    const { email, password } = req.body || {}
+app.get("/api/contacts/all",async(req,res)=>{
+    try{
+        const contacts=await all(`
+            SELECT id,name,phone,email,created_at
+            FROM contacts
+            ORDER BY name COLLATE NOCASE ASC
+        `)
+        res.json({success:true,contacts})
+    }catch(err){
+        console.error("[CONTACTS]",err)
+        res.status(500).json({success:false,error:"Failed to load contacts"})
+    }
+})
 
-    if (
-        email === process.env.ADMIN_EMAIL &&
-        password === process.env.ADMIN_PASS
-    ) {
-        return res.json({ success: true })
+app.get('/status/view/:id/:auth', async(req, res) => {
+    const id = req.params.id
+    const timestamp=new Date().toISOString()
+
+    const rows = await all(`
+        SELECT *
+        FROM messages
+        WHERE id=?
+        ORDER BY id DESC
+        LIMIT 1
+    `, id)
+
+    const row = rows[0]
+    if(!row){
+        return res.status(404).json({success:false, 'error':'Status not found'})
+
+    }
+    await run(`UPDATE messages SET read_at=? WHERE id=?`,[timestamp,id])
+    return res.status(200).json({success:true, 'message':'Viewed'})
+
+})
+
+app.get('/api/contacts/length', async(req, res) => {
+    try{
+        const contacts=await all(`
+            SELECT id,name,phone,email,created_at
+            FROM contacts
+            ORDER BY name COLLATE NOCASE ASC
+        `)
+        res.json({success:true,'count':contacts.length})
+    } catch(err){
+        res.status(500).json({success:false,error:"Failed to load contacts"})
+
     }
 
-    res.status(401).json({ error: "Invalid email or password" })
 })
+
 
 io.on("connection", async socket => {
     socket.emit("sessions", getSessions())
@@ -731,8 +1109,9 @@ io.on("connection", async socket => {
     } catch {}
 })
 
-setInterval(() => {
+setInterval( async ()=>{
     io.emit("sessions", getSessions())
+    await updateNames()
 }, 3000)
 
 const PORT = process.env.PORT || 3000
@@ -744,4 +1123,4 @@ server.listen(PORT, async () => {
     console.log(`Server running on port ${PORT}`)
 })
 
-module.exports = { app, server }
+module.exports = { app, server, updateNames }

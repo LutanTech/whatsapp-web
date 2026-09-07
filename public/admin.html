@@ -248,12 +248,9 @@
             .composer-tools {
                 gap: 0;
             }
-            .composer-tools .msg-action-btn:nth-child(2) {
-                display: none;
-            }
             #msg-input {
                 padding-left: 12px;
-                padding-right: 88px;
+                padding-right: 12px;
             }
         }
         @media (max-width: 767px) {
@@ -295,6 +292,15 @@
         }
         #replyPreview.is-visible, #attachmentPreview.is-visible {
             display: flex;
+        }
+        .showing{
+            animation: pulseMsg 0.5s ease-in-out infinite;
+        }
+        @keyframes pulseMsg {
+            50%{
+                background: #74ff9245 ;
+            }
+            
         }
         .composer-chip {
             background: rgba(15, 23, 42, .7);
@@ -340,8 +346,7 @@
             align-items: center;
             gap: 14px;
             width: 100%;
-            padding: 11px 14px;
-            border-radius: 8px;
+            padding: 10px 14px;
             color: #dbe4f0;
             font-size: 13px;
             font-weight: 600;
@@ -363,16 +368,14 @@
             align-items: center;
             justify-content: space-around;
             gap: 4px;
-            padding: 14px 10px;
-            border-radius: 10px;
+            padding: 5px 8px;
             background: rgba(2,6,23,.78);
             border: 1px solid rgba(71,85,105,.45);
         }
         .quick-reaction {
             width: 42px;
             height: 36px;
-            border-radius: 8px;
-            font-size: 22px;
+            font-size: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -464,8 +467,7 @@
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
-                            <h1 class="font-bold text-sm text-anon-text tracking-wide">Lutan Admin</h1>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono border border-emerald-500/20 font-semibold">v2.4</span>
+                            <h1 class="font-bold text-sm text-anon-text tracking-wide">LuChat</h1>
                         </div>
                         <div class="flex items-center gap-1.5 text-xs font-medium text-anon-accent">
                             <span id="socket-text">Connecting...</span>
@@ -475,9 +477,10 @@
                 </div>
                 
                 <div class="flex items-center gap-1">
-                    <button onclick="openModal('pairModal')" class="w-9 h-9 rounded-lg text-anon-muted hover:text-anon-text hover:bg-anon-panel/80 flex items-center justify-center transition-all" title="Pair New Device">
-                        <i class="fa-solid fa-qrcode text-sm"></i>
+                    <button onclick="openModal('contactsModal'); getContacts(0)" class="w-9 h-9 rounded-lg text-anon-muted hover:text-anon-text hover:bg-anon-panel/80 flex items-center justify-center transition-all" title="Contacts">
+                        <i class="fa-solid fa-users text-sm"></i>
                     </button>
+                    
                     <button onclick="fetchConversations()" class="w-9 h-9 rounded-lg text-anon-muted hover:text-anon-text hover:bg-anon-panel/80 flex items-center justify-center transition-all" title="Refresh Feed">
                         <i class="fa-solid fa-arrows-rotate text-sm"></i>
                     </button>
@@ -619,7 +622,11 @@
                         </button>
                     </div>
 
+                    <div id="stickerMenu" class="hidden flex-wrap gap-1 p-2 mb-2 rounded-lg bg-anon-panel border border-anon-border shadow-xl max-h-24 overflow-y-auto" onscroll="loadMoreStickers(this)">
+                    </div>
+
                     <div id="emojiMenu" class="hidden flex-wrap gap-1 p-2 mb-2 rounded-lg bg-anon-panel border border-anon-border shadow-xl max-h-24 overflow-y-auto">
+                        
                         <button type="button" onclick="insertEmoji('😀')" class="hover:bg-white/10 rounded p-1.5">😀</button>
                         <button type="button" onclick="insertEmoji('😂')" class="hover:bg-white/10 rounded p-1.5">😂</button>
                         <button type="button" onclick="insertEmoji('❤️')" class="hover:bg-white/10 rounded p-1.5">❤️</button>
@@ -635,19 +642,30 @@
                         <input id="attachmentInput" type="file" class="hidden" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt" onchange="handleAttachmentChange(event)">
                         <input id="cameraInput" type="file" class="hidden" accept="image/*" capture="environment" onchange="handleAttachmentChange(event)">
                         <div class="composer-editor relative flex-1 min-w-0">
-                            <textarea id="msg-input" rows="1" placeholder="Write a message…" autocomplete="off" class="w-full min-h-[54px] max-h-[150px] overflow-y-auto bg-anon-panel/80 border border-anon-border/80 rounded-xl pl-4 pr-28 pb-12 pt-3 text-xs text-anon-text placeholder-anon-muted/60 outline-none focus:border-anon-accent/60 focus:ring-1 focus:ring-anon-accent/30"></textarea>
-                            <div class="composer-tools absolute left-2 bottom-2 flex items-center gap-1 z-10">
-                                <button type="button" class="msg-action-btn !w-8 !h-8 !basis-8 !rounded-lg" onclick="openAttachmentPicker()" title="Attach a file">
+                            <textarea id="msg-input" rows="1" placeholder="Write a message…" autocomplete="off" class="w-full min-h-[54px] max-h-[150px] overflow-y-auto bg-anon-panel/80 border border-anon-border/80 rounded-xl pl-4 pr-4 pb-12 pt-3 text-xs text-anon-text placeholder-anon-muted/60 outline-none focus:border-anon-accent/60 focus:ring-1 focus:ring-anon-accent/30"></textarea>
+                            <div class="absolute left-2 right-2 bottom-1.5 flex justify-between bg-[#0f172a]" style="pointer-events: none;">
+                                <div class="absolute left-1 right-2 bottom-10 flex justify-between p-1 bg-[#111b32] hidden" style="z-index: 80;border-radius:5px;box-shadow:2px 2px 5px #000000; width:fit-content; height:fit-content" id="mediaSelector">
+                                    <div class="flex flex-col  justify-start gap-1 px-1 pb-2 text-sm" style="pointer-events: all; font-weight:normal !important;">
+                                        
+                                        <button type="button" class="context-menu-action !w-auto !p-2" onclick="handleMediaType('pic')" title="Message Info" style="border-radius: 0;"><i class="fa-solid fa-image"></i> Pictures</button>
+                                        <button type="button" class="context-menu-action !w-auto !p-2" onclick="handleMediaType('doc')" title="Reply" style="border-radius: 0;"><i class="fa-solid fa-file"></i> Document</button>
+                                        <button type="button" class="context-menu-action !w-auto !p-2" onclick="handleMediaType('audio')" title="Forward Message" style="border-radius: 0;"><i class="fa-solid fa-music"></i> Audio</button>
+                                        <button type="button" class="context-menu-action !w-auto !p-2" onclick="handleMediaType('video')" title="Forward Message" style="border-radius: 0;"><i class="fa-solid fa-video"></i> Video</button>
+                                        <button type="button" class="context-menu-action !w-auto !p-2" onclick="handleMediaType('contact')" title="Forward Message" style="border-radius: 0;"><i class="fa-solid fa-user"></i> Contact</button>
+                                    </div>
+                                    </div>
+                            <div class="composer-tools left-2 bottom-2 flex items-center gap-1 z-10" style="pointer-events: all;">
+                                <button type="button" class="msg-action-btn !w-8 !h-8 !basis-8 !rounded-lg" onclick="toggleMediaSelector()" title="Attach a file">
                                     <i class="fa-solid fa-paperclip text-xs"></i>
                                 </button>
-                                <button type="button" class="msg-action-btn !w-8 !h-8 !basis-8 !rounded-lg" onclick="openCameraPicker()" title="Take a photo">
-                                    <i class="fa-solid fa-camera text-xs"></i>
+                                <button type="button" class="msg-action-btn !w-8 !h-8 !basis-8 !rounded-lg" onclick="toggleStickerMenu()" title="Take a photo">
+                                    <i class="fa-solid fa-note-sticky text-xs"></i>
                                 </button>
                                 <button type="button" class="msg-action-btn !w-8 !h-8 !basis-8 !rounded-lg" onclick="toggleEmojiMenu()" title="Add emoji">
                                     <i class="fa-regular fa-face-smile text-xs"></i>
                                 </button>
                             </div>
-                            <div class="composer-send-tools absolute right-2 bottom-2 flex items-center gap-1 z-10">
+                            <div class="composer-send-tools right-2 bottom-4 flex items-center gap-1 z-10">
                                 <button id="recordBtn" type="button" class="msg-action-btn !w-8 !h-8 !basis-8 !rounded-lg" onclick="toggleAudioRecording()" title="Record voice message">
                                     <i class="fa-solid fa-microphone text-xs"></i>
                                 </button>
@@ -656,11 +674,9 @@
                                 </button>
                             </div>
                         </div>
+                        </div>
                     </form>
-                    <div class="flex justify-between px-1 pt-1 text-[9px] text-anon-muted/70">
-                        <span>Enter to send · Shift+Enter for a new line</span>
-                        <span id="recordingTimer"></span>
-                    </div>
+
                 </footer>
             </div>
         </main>
@@ -721,6 +737,8 @@
                             <p class="text-[10px] text-anon-muted mt-1">These settings are saved in this browser.</p>
                         </div>
                         <i class="fa-solid fa-sliders text-anon-accent"></i>
+                        
+    
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <label class="flex items-center justify-between gap-3 rounded-lg border border-anon-border bg-anon-panel/60 p-3 cursor-pointer">
@@ -770,17 +788,114 @@
                     </div>
                     <div id="adminSessionsList" class="space-y-2.5"></div>
                 </div>
-
-                <div class="flex items-start gap-3 rounded-xl border border-anon-border bg-anon-panel/50 p-4">
-                    <i class="fa-solid fa-shield-halved text-anon-accent mt-0.5"></i>
+                <a href="/contacts" class="flex items-start gap-3 rounded-xl border border-anon-border bg-anon-panel/50 p-4 hover:bg-anon-panel transition">
+                    <i class="fa-solid fa-users text-anon-accent mt-0.5"></i>
                     <div>
-                        <p class="text-xs font-semibold text-anon-text">Session privacy</p>
-                        <p class="text-[10px] text-anon-muted leading-relaxed mt-1">Your linked WhatsApp sessions remain managed by the bot. Use Logout to disconnect a device or Link device to add another account.</p>
+                        <p class="text-xs font-semibold text-anon-text">Contacts</p>
+                        <p class="text-[10px] text-anon-muted leading-relaxed mt-1">View, add, edit, and manage your contacts.</p>
                     </div>
-                </div>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-anon-muted ml-auto mt-1"></i>
+                </a>
             </div>
         </div>
     </div>
+
+    <div id="contactsModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4 backdrop-blur-md transition-all duration-200">
+        <div class="glass-modal max-w-2xl w-full rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-anon-border animate-pop-in">
+            <div class="p-5 bg-anon-sidebar border-b border-anon-border flex justify-between items-center">
+                <h5 class="font-bold text-sm text-anon-text flex items-center gap-2">
+                    <i class="fas fa-users text-anon-accent"></i> All Contacts<span id="contactSpan">(0)</span>
+                </h5>
+                <div class="flex gap-2">
+
+                <button onclick="openModal('importModal')" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors" title="Import Contacts">
+                        <i class="fa-solid fa-cloud-download text-base"></i>
+                </button>
+                <button onclick="reloadContacts()" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors" title="Refresh Contacts">
+                    <i class="fa-solid fa-refresh text-base"></i>
+                </button>
+                <button onclick="closeModal('contactsModal')" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors" title="Close">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+            </div>
+            
+            <div class="p-6 space-y-5 overflow-y-auto max-h-[80vh] scrollbar-thin"  onscroll="loadMoreContacts(this)">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="contactsList">
+                    
+                    </div>
+                    </div>
+
+      
+        </div>
+    </div>
+
+    <div id="importModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4 backdrop-blur-md">
+        <div class="glass-modal w-full max-w-lg max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-anon-border">
+    
+            <div class="px-4 py-3 bg-anon-sidebar border-b border-anon-border flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-users text-anon-accent"></i>
+                    <div>
+                        <h5 class="font-bold text-xs text-anon-text">Import Contacts</h5>
+                        <p class="text-[9px] text-anon-muted">Import contacts from a VCF file</p>
+                    </div>
+                </div>
+    
+                <div class="flex gap-1">
+                    <button onclick="importContacts()" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-accent flex items-center justify-center" title="Import Contacts">
+                        <i class="fa-solid fa-cloud-arrow-down text-xs"></i>
+                    </button>
+                    <button onclick="reloadContacts()" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center" title="Refresh Contacts">
+                        <i class="fa-solid fa-arrows-rotate text-xs"></i>
+                    </button>
+                    <button onclick="closeModal('importModal')" class="w-8 h-8 rounded-lg hover:bg-red-500/10 text-anon-muted hover:text-red-400 flex items-center justify-center" title="Close">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                </div>
+            </div>
+    
+            <div class="p-4 overflow-y-auto space-y-3">
+    
+                <div class="p-4 rounded-xl bg-anon-sidebar/60 border border-anon-border">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-9 h-9 rounded-lg bg-anon-accent/10 flex items-center justify-center">
+                            <i class="fa-solid fa-file-import text-anon-accent text-sm"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xs font-bold text-anon-text">Import your contacts</h2>
+                            <p class="text-[9px] text-anon-muted">Select your exported VCF file</p>
+                        </div>
+                    </div>
+    
+                    <input type="file" id="vcfFile" accept=".vcf,text/vcard"
+                        class="w-full text-[10px] text-anon-muted bg-black/20 border border-anon-border rounded-lg p-2">
+    
+                    <button id="uploadBtn"
+                        class="w-full mt-2 px-3 py-2.5 rounded-lg bg-anon-accent text-slate-950 font-bold text-[10px] hover:brightness-110 transition-all">
+                        <i class="fa-solid fa-cloud-arrow-up mr-1"></i>
+                        Import Contacts
+                    </button>
+                </div>
+    
+                <div id="status" class="hidden px-3 py-2 rounded-lg bg-anon-sidebar border border-anon-border text-[10px] text-anon-muted"></div>
+    
+                <div class="rounded-xl bg-anon-sidebar/60 border border-anon-border overflow-hidden">
+                    <div class="px-3 py-2 border-b border-anon-border flex items-center gap-2">
+                        <i class="fa-solid fa-address-book text-anon-accent text-xs"></i>
+                        <span class="text-[10px] font-bold text-anon-text">Contacts</span>
+                    </div>
+    
+                    <div id="contacts" class="max-h-60 overflow-y-auto p-2 text-[10px] text-anon-muted">
+                        Loading contacts...
+                    </div>
+                </div>
+    
+            </div>
+        </div>
+    </div>
+
+    
 
     <div id="pairModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4 backdrop-blur-md transition-all duration-200">
         <div class="glass-modal max-w-md w-full rounded-2xl shadow-2xl overflow-hidden border border-anon-border animate-pop-in">
@@ -857,25 +972,6 @@
             </div>
         </div>
     </div>
-<!-- 
-    <div id="statusDayModal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-md items-center justify-center p-4">
-        <div class="w-full max-w-lg max-h-[85vh] bg-anon-sidebar border border-anon-border rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-pop-in">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-anon-border">
-                <div>
-                    <div class="text-sm font-bold text-slate-100 flex items-center gap-2">
-                        <i class="fa-solid fa-bullhorn text-anon-accent"></i> WhatsApp Status Story
-                    </div>
-                    <div id="statusDayModalDate" class="text-[10px] text-anon-muted mt-0.5 font-mono"></div>
-                </div>
-
-                <button onclick="closeStatusDayModal()" class="w-8 h-8 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition flex items-center justify-center">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-
-            <div id="statusDayModalContent" class="p-5 overflow-y-auto max-h-[70vh] space-y-3 scrollbar-thin"></div>
-        </div>
-    </div> -->
 
     <div id="avatarModal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-black/90 backdrop-blur-md p-3 sm:p-6" onclick="if (event.target === this) closeAvatarModal()">
         <div id="avatarModalPanel" class="relative flex h-full max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-2xl animate-pop-in" onclick="event.stopPropagation()">
@@ -907,7 +1003,7 @@
         </div>
     </div>
 
-    <div id="messageContextMenu" class="context-menu fixed z-[95] hidden rounded-xl border border-slate-700/80 bg-slate-900/95 p-2.5 backdrop-blur-xl">
+    <div id="messageContextMenu" class="context-menu fixed z-[95] hidden rounded-sm border border-slate-700/80 bg-slate-900/95 p-0.5 backdrop-blur-xl">
         <div class="flex items-center justify-between gap-1 px-1 pb-2">
             <button type="button" class="context-menu-action !w-auto !p-2" onclick="handleMessageAction('reply')" title="Reply"><i class="fa-solid fa-reply"></i></button>
             <button type="button" class="context-menu-action !w-auto !p-2" onclick="handleMessageAction('info')" title="Message Info"><i class="fa-solid fa-circle-info"></i></button>
@@ -922,9 +1018,10 @@
         </div>
         <div class="border-t border-slate-700/70 pt-1">
             <button type="button" class="context-menu-action" onclick="handleMessageAction('reply')"><i class="fa-solid fa-reply"></i><span>Reply</span></button>
-            <button type="button" class="context-menu-action" onclick="handleMessageAction('forward')"><i class="fa-solid fa-share"></i><span>Forward Message</span></button>
-            <button type="button" class="context-menu-action" onclick="handleMessageAction('pin')"><i class="fa-solid fa-thumbtack"></i><span>Pin Message</span></button>
-            <button type="button" class="context-menu-action" onclick="handleMessageAction('info')"><i class="fa-solid fa-circle-info"></i><span>Message Info</span></button>
+            <button type="button" class="context-menu-action" onclick="handleMessageAction('forward')"><i class="fa-solid fa-share"></i><span>Forward </span></button>
+            <button type="button" class="context-menu-action" onclick="handleMessageAction('pin')"><i class="fa-solid fa-thumbtack"></i><span>Pin</span></button>
+            <button type="button" class="context-menu-action" onclick="handleMessageAction('info')"><i class="fa-solid fa-circle-info"></i><span>Info</span></button>
+            <button type="button" class="context-menu-action" onclick="handleMessageAction('delete')"><i class="fa-solid fa-trash"></i><span style="color:rgb(253, 59, 59)">Delete</span></button>
         </div>
     </div>
 
@@ -1008,14 +1105,48 @@
         let contextMenusBound = false;
         let deferredInstallPrompt = null;
         const WHATSAPP_SETTINGS_KEY = "mybot.whatsappSettings";
+        let adminSessionId = localStorage.getItem("adminSession") || ""
+        let stickers=JSON.parse(localStorage.getItem("stickers")||"[]")
+        let stickerPage=Number(localStorage.getItem("stickerPage")||1)
+        let stickerLoading=false
+        let stickerHasMore=true
+        let contacts=[]
+        const statusPayloads={}
+        let statusPayloadId=0
+        let currentStatusIndex = 0;
+        let currentStatusList = [];
+        let statusTimer = null;
+        let statusPaused = false;
+        let statusSegmentStartedAt = 0;
+        let statusRemainingMs = 0;
+        let statusDurationMs = 5000;
+        const STATUS_DURATION = 5000;
         const defaultWhatsAppSettings = {
             privacyMode: false,
             theme: "dark",
             defaultSidebar: "all"
         };
+        let currentPage =  0
+        let per_page = 50
+        let contacts_length = contacts.length
+        let allPages = Math.ceil(contacts_length / per_page)
+        let has_next = allPages > currentPage
+        let has_prev = currentPage > 0
+        let start = currentPage * per_page
+        let end = start + per_page
+        let pageContacts = contacts.slice(0, end)
+        let contactsCount = 0
+        const timestamp=new Date().toISOString()
+        let conversationsRefreshTimer = null;
+        let messageRefreshTimer = null;
+
         
         function el(id) { return document.getElementById(id); }
-        function escapeHtml(v) { return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
+       
+        function escapeHtml(v) {
+             return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); 
+            }
+       
         function escapeAttr(v) { return escapeHtml(v).replace(/\\/g,"\\\\"); }
         
         function isOutgoingMessage(value) {
@@ -1248,14 +1379,48 @@
             el("searchClearBtn").classList.add("hidden");
             renderConversationsList();
         }
+
+        async function verifyAuth() {
+            try {
+                const token = localStorage.getItem("adminAuth")
         
-        function checkAuth() {
-            if (sessionStorage.getItem("adminAuth") !== "true") {
+                if (!token)
+                    return false
+        
+                const r = await fetch("/api/admin/verify", {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                })
+        
+                const d = await r.json()
+        
+                if (r.ok && d.authenticated) {
+                    adminSessionId = d.session_id
+                    localStorage.setItem("adminSession", d.session_id)
+                    return true
+                }
+        
+                localStorage.removeItem("adminAuth")
+                localStorage.removeItem("adminSession")
+                return false
+        
+            } catch {
+                localStorage.removeItem("adminAuth")
+                localStorage.removeItem("adminSession")
+                return false
+            }
+        }
+        
+        async function checkAuth() {
+            if (!await verifyAuth()) {
                 el("loginGate").classList.remove("hidden");
                 el("loginGate").classList.add("flex");
                 el("adminDashboard").classList.add("hidden");
                 return;
             }
+            console.log(await verifyAuth())
+
             el("loginGate").classList.add("hidden");
             el("loginGate").classList.remove("flex");
             el("unauthorizedScreen").classList.add("hidden");
@@ -1264,30 +1429,46 @@
         }
         
         async function handleLogin(e) {
-            e.preventDefault();
-            const email = el("adminEmail").value.trim();
-            const password = el("adminPassword").value.trim();
+            e.preventDefault()
+        
+            const email = el("adminEmail").value.trim()
+            const password = el("adminPassword").value.trim()
+        
             try {
                 const r = await fetch("/api/admin/login", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email, password })
-                });
-                const d = await r.json();
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password
+                    })
+                })
+        
+                const d = await r.json()
+        
                 if (r.ok && d.success) {
-                    sessionStorage.setItem("adminAuth", "true");
-                    checkAuth();
-                    return;
+                    localStorage.setItem("adminAuth", d.token)
+                    localStorage.setItem("adminSession", d.session_id)
+        
+                    checkAuth()
+                    return
                 }
-                el("loginGate").classList.add("hidden");
-                el("unauthorizedScreen").classList.remove("hidden");
-                el("unauthorizedMsg").innerText = d.error || "Invalid administrator credentials provided.";
+        
+                el("loginGate").classList.add("hidden")
+                el("unauthorizedScreen").classList.remove("hidden")
+                el("unauthorizedMsg").innerText =
+                    d.error || "Invalid administrator credentials provided."
+        
             } catch {
-                sessionStorage.setItem("adminAuth", "true");
-                checkAuth();
+                el("loginGate").classList.add("hidden")
+                el("unauthorizedScreen").classList.remove("hidden")
+                el("unauthorizedMsg").innerText =
+                    "Unable to connect to server."
             }
         }
-        
+       
         function retryLogin() {
             el("unauthorizedScreen").classList.add("hidden");
             el("loginGate").classList.remove("hidden");
@@ -1296,10 +1477,18 @@
         }
         
         function logoutAdmin() {
-            sessionStorage.removeItem("adminAuth");
+            localStorage.removeItem("adminAuth");
             location.reload();
         }
         
+        function scheduleConversationsRefresh() {
+            clearTimeout(conversationsRefreshTimer);
+        
+            conversationsRefreshTimer = setTimeout(() => {
+                fetchConversations();
+            }, 500);
+        }
+
         function initAdminConsole() {
             registerPWA();
             const input = el("msg-input");
@@ -1341,12 +1530,31 @@
                                 setPresenceDot(conversations[index]);
                         }
                     });
+
                     socket.on("message", m => {
-                        fetchConversations();
-                        if (activeThread && m.conversation_key === activeThread.conversation_key) {
-                            openConversation(activeThread.conversation_key);
+                        if (
+                            activeThread &&
+                            m.conversation_key === activeThread.conversation_key
+                        ) {
+                            appendMessageToChat(m);
                         }
+                    
+                        clearTimeout(messageRefreshTimer);
+                    
+                        messageRefreshTimer = setTimeout(() => {
+                            fetchConversations();
+                        }, 500);
                     });
+                    socket.on("invalidateContacts" , () => {
+                        localStorage.removeItem('contacts') 
+                    })
+                    socket.on("logout", ()=>{
+                        localStorage.clear()
+                        window.location.reload()
+                    })
+                    socket.on("pageReload", ()=>{
+                        window.location.reload()
+                    })
                 } catch {
                     el("socket-text").innerText = "Standalone Preview";
                 }
@@ -1450,8 +1658,8 @@
                                 <span class="text-[10px] text-anon-muted shrink-0 font-mono">${formatChatTime(x.last_time)}</span>
                             </div>
                             <div class="flex items-center gap-1.5 text-[11px] text-anon-muted truncate">
-                                <i class="fa-solid ${lastMessageIsMine ? "fa-check-double text-anon-accent" : "fa-message text-anon-muted"} text-[10px]"></i>
-                                <span class="truncate privacy-sensitive">${escapeHtml(previewPrefix)}: ${escapeHtml(msg)}</span>
+                                <i class="fa-solid ${lastMessageIsMine ? "fa-check-double text-anon-accent" : ''} text-[10px]"></i>
+                                <span class="truncate privacy-sensitive ${String(previewPrefix).startsWith('~') ? 'italic' : ''}">${!isGroup && !isStatus && !isChannel ? '' : previewPrefix + ' :' }<span style="font-style:normal;">${escapeHtml(msg)}</span></span>
                                 ${unreadCount ? `<span class="ml-auto shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-anon-accent text-slate-950 text-[10px] font-bold flex items-center justify-center" title="${unreadCount} unread message${unreadCount === 1 ? "" : "s"}">${unreadCount > 99 ? "99+" : unreadCount}</span>` : ""}
                             </div>
                         </div>
@@ -1599,6 +1807,22 @@
             renderConversationsList();
         }
         
+        function appendMessageToChat(message) {
+            const container = el("chatMessagesContainer");
+            if (!container || !message?.msg_id) return;
+        
+            if (el(`msg-${message.msg_id}`)) return;
+        
+            const html = renderNormalMessages([message]);
+            if (!html) return;
+        
+            const empty = container.querySelector(".mt-12.mx-auto");
+            if (empty) container.innerHTML = "";
+        
+            container.insertAdjacentHTML("beforeend", html);
+            container.scrollTop = container.scrollHeight;
+        }
+
         function renderNormalMessages(messages) {
             const reactionsMap = new Map();
         
@@ -1616,9 +1840,9 @@
                     ? new Date(Number(m.created_at) * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
                     : "";
                 
-                const quoted = m.quoted_text
-                    ? `<div class="mb-2 px-3 py-1.5 rounded-md bg-black/30 border-l-2 border-anon-accent">
-                        <div class="text-[9px] font-bold text-anon-accent truncate">${escapeHtml(m.quoted_sender || "Replied Message")}</div>
+                const quoted = m.quoted_text && m.quoted_sender
+                    ? `<div class="mb-2 px-3 py-1.5 rounded-md bg-black/30 border-l-2 border-anon-accent cursor-pointer" quoted_msg_id="msg-${m.quoted_msg_id}" onclick="scrollToMsg('msg-${m.quoted_msg_id}')">
+                        <div class="text-[9px] font-bold text-anon-accent truncate">${escapeHtml(m.quoted_sender_name ||  "Replied Message")}</div>
                         <div class="text-[10px] text-slate-300 line-clamp-2">${escapeHtml(m.quoted_text)}</div>
                        </div>`
                     : "";
@@ -1685,7 +1909,7 @@
                 }));
         
                 return `
-                    <div class="flex flex-col w-full ${self ? "items-end" : "items-start"}">
+                    <div class="flex flex-col w-full ${self ? "items-end" : "items-start"}" id="msg-${m.msg_id}">
                         <div class="max-w-[85%] sm:max-w-[70%]">
                             <div class="message-bubble group px-4 py-2.5 text-xs leading-relaxed shadow-md rounded-xl ${self ? "bg-anon-msgOut text-slate-100 rounded-tr-none border border-emerald-600/30" : "bg-anon-msgIn text-slate-100 rounded-tl-none border border-slate-700/40"}" data-swipe-reply="true" data-swipe-direction="${self ? "left" : "right"}" data-reply-payload="${escapeAttr(replyPayload)}" oncontextmenu='openMessageContextMenu(${messagePayload}, event); return false;'>
                                 ${!self ? `<div class="text-[10px] font-bold text-anon-accent mb-1 truncate">${escapeHtml(sender)}</div>` : ""}
@@ -1703,48 +1927,177 @@
             }).join("");
         }
         
-        function renderChatThread(messages) {
-            const container = el("chatMessagesContainer");
-            if (!messages?.length) {
-                container.innerHTML = `<div class="mt-12 mx-auto bg-anon-panel/80 px-6 py-3 rounded-full text-center text-anon-muted text-xs border border-anon-border">No recorded logs for this conversation.</div>`;
+        function scrollToMsg(id){
+            const msg=document.querySelector(`#${id}`)
+            if(msg)
+            msg.scrollIntoView({behavior:"smooth",block:"center"})
+            msg.classList.add('showing')
+            setTimeout(() =>{
+                msg.classList.remove('showing')
+            }, 3000)
+
+        }
+
+        function getStoredContactsLength(){
+            fetch('/api/contacts/length')
+            .then(r=>r.json())
+            .then(data=>{
+                contactsCount = data.count
+                return true
+
+            })
+            .catch(err=>{
+                return false
+            })
+
+        }
+
+        function loadMoreContacts(el){
+        if(el.scrollTop+el.clientHeight>=el.scrollHeight-20)
+                currentPage < allPages ? getContacts(currentPage) : null
+        }
+
+        async function getContacts(cpage){
+            currentPage = cpage || 0
+
+            await getStoredContactsLength()
+
+            
+            const contactList=document.querySelector('#contactsList')
+            const storedContacts=localStorage.getItem('contacts')
+        
+            if(storedContacts){
+                contacts=JSON.parse(storedContacts)
+                console.log(contactsCount, contacts.length)
+                if(contactsCount !== storedContacts.length){
+                    localStorage.removeItem('contacts')
+                    contacts=await fetchContacts()
+                }
+            }else{
+                contacts=await fetchContacts()
+                if(!contacts?.length)return
+            }
+            contacts_length = contacts.length
+            allPages = Math.ceil(contacts_length / per_page)
+            has_next = allPages > currentPage
+            has_prev = currentPage > 0
+            start = currentPage * per_page
+            end = start + per_page
+            pageContacts = contacts.slice(0, end)
+
+            contactList.innerHTML = ''
+
+            const span = el('contactSpan')
+            span.textContent = `(0 - ${end < contacts_length ? end : contacts_length} of ${contacts_length})`
+
+            pageContacts.forEach(c=>{
+                const cc=document.createElement('div')
+                cc.className='bg-anon-panel/80 border border-anon-border rounded-xl p-4'
+               
+                cc.innerHTML = `
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex justify-between gap-3 w-full">
+                        <div>
+                            <div class="font-semibold text-xs">${escapeHtml(c.name)}</div>
+                            <div class="text-xs opacity-70">${escapeHtml(c.phone || '')}</div>
+                        </div>
+
+                        <div
+                            onclick="startChatWithContact('${escapeAttr(c.phone || '')}')"
+                            class="cursor-pointer hover:text-anon-accent border-anon-accent hover:outline hover:outline-[#10b981]"
+                            style="padding:5px 10px;border-radius:20%;"
+                        >
+                            <i class="fas fa-message text-anon-accent"></i>
+                        </div>
+                    </div>
+
+                    <div class="text-xs opacity-60">${escapeHtml(c.email || '')}</div>
+                </div>
+            `
+         contactList.appendChild(cc)
+            })
+           
+            currentPage = currentPage < allPages ? currentPage + 1 : allPages
+
+            return { allPages, has_next, has_prev, currentPage}
+        }
+
+        function startChatWithContact(phone) {
+            if (!phone) return;
+            const sessionPhone = localStorage.getItem('adminSession')
+        
+            const jid = phone.replace(/\D/g, "") + "@s.whatsapp.net";
+        
+            const conversation = conversations.find(c =>
+                c.jid === jid ||
+                c.conversation_key === jid
+            );
+        
+            if (conversation) {
+                openConversation(conversation.conversation_key);
                 return;
             }
         
-            const sorted = [...messages].sort((a,b) => Number(a.created_at) - Number(b.created_at));
-            const statuses = sorted.filter(m => m.jid === "status@broadcast");
-            const normal = sorted.filter(m => m.jid !== "status@broadcast");
+            const conversationKey = `${sessionPhone || "primary"}:${jid}`;
         
-            if (!statuses.length) {
-                container.innerHTML = renderNormalMessages(normal);
-                setTimeout(() => container.scrollTop = container.scrollHeight, 50);
-                return;
+            openConversation(conversationKey);
+        }
+        
+        async function fetchContacts(){
+            try{
+                const r=await fetch('/api/contacts/all')
+                const data=await r.json()
+                if(!data.success||!data.contacts)return[]
+                contacts=data.contacts
+                localStorage.setItem('contacts',JSON.stringify(contacts))
+                return contacts
+            }catch(err){
+                console.error(err.message)
+                return[]
+            }
+        }
+
+        function renderChatThread(messages){
+            const container=el("chatMessagesContainer")
+            if(!messages?.length){
+                container.innerHTML=`<div class="mt-12 mx-auto bg-anon-panel/80 px-6 py-3 rounded-full text-center text-anon-muted text-xs border border-anon-border">No recorded logs for this conversation.</div>`
+                return
             }
         
-            const days = new Map();
-            statuses.forEach(s => {
-                const d = new Date(Number(s.created_at) * 1000);
-                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-                if (!days.has(key)) days.set(key, []);
-                days.get(key).push(s);
-            });
+            const sorted=[...messages].sort((a,b)=>Number(a.created_at)-Number(b.created_at))
+            const statuses=sorted.filter(m=>m.jid==="status@broadcast")
+            const normal=sorted.filter(m=>m.jid!=="status@broadcast")
         
-            const statusHtml = [...days.entries()].sort((a,b) => b[0].localeCompare(a[0])).map(([day, list]) => {
-                const userMap = new Map();
-                list.forEach(s => {
-                    const uid = s.sender || s.sender_jid || s.sender_name || s.push_name || "unknown";
-                    if (!userMap.has(uid)) userMap.set(uid, []);
-                    userMap.get(uid).push(s);
-                });
+            if(!statuses.length){
+                container.innerHTML=renderNormalMessages(normal)
+                setTimeout(()=>container.scrollTop=container.scrollHeight,50)
+                return
+            }
         
-                // Sort users by their latest status timestamp (descending: newest first)
-                const sortedUsers = [...userMap.entries()].map(([uid, items]) => {
-                    items.sort((a,b) => Number(a.created_at) - Number(b.created_at));
-                    const latestTime = Number(items[items.length - 1].created_at || 0);
-                    return { uid, items, latestTime };
-                }).sort((a,b) => b.latestTime - a.latestTime);
+            const days=new Map()
+            statuses.forEach(s=>{
+                const d=new Date(Number(s.created_at)*1000)
+                const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`
+                if(!days.has(key))days.set(key,[])
+                days.get(key).push(s)
+            })
         
-                const d = new Date(Number(list[0].created_at) * 1000);
-                const label = d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+            const statusHtml=[...days.entries()].sort((a,b)=>b[0].localeCompare(a[0])).map(([day,list])=>{
+                const userMap=new Map()
+        
+                list.forEach(s=>{
+                    const uid=s.sender||s.sender_jid||s.sender_name||s.push_name||"unknown"
+                    if(!userMap.has(uid))userMap.set(uid,[])
+                    userMap.get(uid).push(s)
+                })
+        
+                const sortedUsers=[...userMap.entries()].map(([uid,items])=>{
+                    items.sort((a,b)=>Number(a.created_at)-Number(b.created_at))
+                    return{uid,items,latestTime:Number(items.at(-1)?.created_at||0)}
+                }).sort((a,b)=>b.latestTime-a.latestTime)
+        
+                const d=new Date(Number(list[0].created_at)*1000)
+                const label=d.toLocaleDateString([],{weekday:"short",month:"short",day:"numeric"})
         
                 return `
                     <div class="mb-4">
@@ -1756,54 +2109,53 @@
                                 </div>
                                 <i class="fa-solid fa-chevron-down text-xs text-anon-muted group-open:rotate-180 transition-transform"></i>
                             </summary>
-                            
                             <div class="p-3 border-t border-anon-border/50 bg-black/20 space-y-2">
-                                ${sortedUsers.map(({ uid, items, latestTime }) => {
-                                    const senderName = items[0].sender_name || items[0].push_name || items[0].sender || uid;
-                                    const avatarPic = items[0].img || items[0].avatar || items[0].profile_pic;
-                                    const formattedTime = latestTime ? new Date(latestTime * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
-                                    const payload = JSON.stringify(items).replace(/\\/g, "\\\\").replace(/'/g, "&#39;");
-                                    
-                                    return `
-                                        <div onclick='openStatusUserModal(${payload})' class="flex items-center justify-between p-2.5 rounded-lg bg-black/40 border border-slate-800 hover:border-anon-accent/50 cursor-pointer transition-all">
-                                            <div class="flex items-center gap-3 min-w-0">
-                                                <div class="relative w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-emerald-500 to-teal-300 shrink-0">
-                                                    ${avatarPic 
-                                                        ? `<img src="${escapeAttr(avatarPic)}" class="w-full h-full rounded-full object-cover border border-black">`
-                                                        : `<div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-anon-accent text-xs border border-black"><i class="fa-solid fa-user"></i></div>`
-                                                    }
-                                                </div>
-                                                <div class="min-w-0 flex-1">
-                                                    <div class="text-xs font-bold text-slate-100 truncate">${escapeHtml(senderName)}</div>
-                                                    <div class="text-[10px] text-anon-muted font-mono">${items.length} segment${items.length > 1 ? "s" : ""}</div>
-                                                </div>
+                                ${sortedUsers.map(({uid,items,latestTime})=>{
+                                    const senderName=items[0].sender_name||items[0].push_name||items[0].sender||uid
+                                    const avatarPic=items[0].img||items[0].avatar||items[0].profile_pic
+                                    const formattedTime=latestTime?new Date(latestTime*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):""
+                                    const payload=JSON.stringify(items)
+        
+                                    const statusId=`status_${++statusPayloadId}`
+                                    statusPayloads[statusId]=items
+                                    console.log(items)
+
+                                return `
+                                    <div onclick='openStatusUserModal(statusPayloads["${statusId}"])'
+                                        class="flex flex-col justify-between p-2.5 rounded-lg bg-black/40 border border-slate-800 hover:border-anon-accent/50 cursor-pointer transition-all">
+                                        <div class="viewed-bars flex w-full gap-2">
+                                        ${items.map(i=> `<div class="viewed-bar" style="background: ${i.read_at ? 'grey' : '#6fff6f'}; padding: 2px;border-radius: 5px;  margin-bottom: 10px;flex-grow:1"></div>`).join('')}
+                                        </div>
+                                        <div class="flex  items-center justify-between no-wrap">
+
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="relative w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-emerald-500 to-teal-300 shrink-0">
+                                                ${avatarPic
+                                                    ? `<img src="${escapeAttr(avatarPic)}" class="w-full h-full rounded-full object-cover border border-black">`
+                                                    : `<div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-anon-accent text-xs border border-black"><i class="fa-solid fa-user"></i></div>`
+                                                }
                                             </div>
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-[10px] text-anon-muted font-mono">${formattedTime}</span>
-                                                <i class="fa-solid fa-chevron-right text-xs text-anon-muted"></i>
+                                            <div class="min-w-0 flex-1">
+                                                <div class="text-xs font-bold text-slate-100 truncate">${escapeHtml(senderName)}</div>
+                                                <div class="text-[10px] text-anon-muted font-mono">${items.length} status${items.length>1?"es":""}</div>
                                             </div>
-                                        </div>`;
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[10px] text-anon-muted font-mono">${formattedTime}</span>
+                                            <i class="fa-solid fa-chevron-right text-xs text-anon-muted"></i>
+                                        </div>
+                                    </div>
+                                </div>`
                                 }).join("")}
                             </div>
                         </details>
-                    </div>`;
-            }).join("");
+                    </div>`
+            }).join("")
         
-            container.innerHTML = statusHtml + (normal.length ? `<div class="h-px bg-anon-border my-4"></div>${renderNormalMessages(normal)}` : "");
-            setTimeout(() => container.scrollTop = container.scrollHeight, 50);
+            container.innerHTML=statusHtml+(normal.length?`<div class="h-px bg-anon-border my-4"></div>${renderNormalMessages(normal)}`:"")
+            setTimeout(()=>container.scrollTop(0),50)
         }
-        
-
-        let currentStatusIndex = 0;
-        let currentStatusList = [];
-        let statusTimer = null;
-        let statusPaused = false;
-        let statusSegmentStartedAt = 0;
-        let statusRemainingMs = 0;
-        let statusDurationMs = 5000;
-        const STATUS_DURATION = 5000;
-
-
+       
         function updateStatusPauseButton() {
             const button = el("statusPauseBtn");
             const progress = document.querySelector("#statusProgressContainer .status-current-progress");
@@ -1984,6 +2336,18 @@
                 }, { once: true });
             }
 
+            console.clear()
+            console.log(m.read_at)
+
+            !m.read_at ? fetch(`/status/view/${m.id}/Bearer-${localStorage.getItem('adminAuth')}`)
+            .then(r=>r.json())
+            .then(data=>{
+                console.log(data)
+            })
+            .catch(err=>{
+                console.log(err.message)
+            }) : null;
+
             updateStatusPauseButton();
             scheduleStatusAdvance();
         }
@@ -2005,7 +2369,6 @@
                 renderSingleStatus();
             }
         }
-
        
         async function sendStatusReply(event) {
             event?.preventDefault?.();
@@ -2088,7 +2451,6 @@
             }
         }
         
- 
         function closeStatusDayModal() {
             clearTimeout(statusTimer);
             statusPaused = false;
@@ -2545,7 +2907,128 @@
         }
 
         function toggleEmojiMenu() {
+            setTimeout(() => {
             el("emojiMenu")?.classList.toggle("hidden");
+            }, 50)
+            el("mediaSelector")?.classList.contains('hidden') ? '' : toggleMediaSelector()
+        }
+       
+        function addStickers(urls){
+            const menu=document.getElementById("stickerMenu")
+            urls.forEach(url=>{
+                const button=document.createElement("button")
+                button.type="button"
+                button.onclick=()=>sendSticker(button)
+                button.innerHTML=`<img src="${url}" class="w-12 h-12 object-contain">`
+                menu.appendChild(button)
+            })
+        }
+
+        async function loadStickers(){
+            if(stickerLoading||!stickerHasMore)return
+            stickerLoading=true
+
+            try{
+                const r=await fetch(`/api/stickers?page=${stickerPage}`)
+                const data=await r.json()
+
+                if(!data.success)return
+
+                const fresh=data.stickers.filter(url=>!stickers.includes(url))
+
+                if(fresh.length){
+                    stickers.push(...fresh)
+                    addStickers(fresh)
+                    localStorage.setItem("stickers",JSON.stringify(stickers))
+                }
+
+                stickerHasMore=data.has_more
+                stickerPage++
+
+                localStorage.setItem("stickerPage",stickerPage)
+                localStorage.setItem("stickerHasMore",stickerHasMore)
+            }catch(err){
+                console.error("Failed to load stickers:",err)
+            }finally{
+                stickerLoading=false
+            }
+        }
+
+        async function sendSticker(button){
+            if(composerBusy)return
+
+            const conversationKey=activeThread?.conversation_key
+            const img=button.querySelector("img")
+            if(!conversationKey||activeThread?.readOnly||!img)return
+
+            composerBusy=true
+            updateComposerState()
+            setComposerStatus("Sending…")
+            console.log(img.src.split("/").pop())
+
+            try {
+                const response = await fetch("/api/messages/send", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        conversation_key: conversationKey,
+                        text: "",
+                        media: {
+                            type: "sticker",
+                            mimetype: "image/webp",
+                            fileName: img.src.split("/").pop(),
+                            url: img.src
+                        },
+                        reply_to:
+                            replyTarget?.conversation_key === conversationKey
+                                ? replyTarget.id
+                                : null
+                    })
+                });
+            
+                const result = await response.json().catch(() => ({}));
+            
+                if (!response.ok) {
+                    throw new Error(result.error || "Sticker could not be sent");
+                }
+            
+                clearReplyTarget();
+                el("stickerMenu")?.classList.add("hidden");
+                setComposerStatus("Sticker sent.", "success");
+            
+            } catch (error) {
+                setComposerStatus(
+                    error.message || "Sticker could not be sent",
+                    "error"
+                );
+            } finally {
+                composerBusy = false;
+                updateComposerState();
+            }}
+        
+        function loadMoreStickers(el){
+            if(el.scrollTop+el.clientHeight>=el.scrollHeight-20)
+                loadStickers()
+        }
+
+        function toggleStickerMenu(){
+            const menu=document.getElementById("stickerMenu")
+            setTimeout(() => {
+
+            menu.classList.toggle("hidden")
+            }, 50)
+            const modal = el('mediaSelector')
+
+            modal.classList.contains('hidden') ? '' : toggleMediaSelector()
+
+            if(!menu.classList.contains("hidden")&&!menu.children.length){
+                addStickers(stickers)
+
+                if(!stickers.length)
+                    loadStickers()
+            }
         }
 
         function autoResizeComposer() {
@@ -2641,18 +3124,23 @@
 
         async function sendComposerMessage(event) {
             event?.preventDefault?.();
-
+        
             if (composerBusy) return;
+        
             if (mediaRecorder && mediaRecorder.state !== "inactive") {
                 setComposerStatus("Stop the recording before sending.", "error");
                 return;
             }
-
+        
             const conversationKey = activeThread?.conversation_key;
             const input = el("msg-input");
             const text = input?.value.trim() || "";
-
-            if (!conversationKey || activeThread?.readOnly || (!text && !selectedAttachment)) {
+        
+            if (
+                !conversationKey ||
+                activeThread?.readOnly ||
+                (!text && !selectedAttachment)
+            ) {
                 setComposerStatus(
                     !conversationKey
                         ? "Open a conversation first."
@@ -2663,14 +3151,14 @@
                 );
                 return;
             }
-
+        
             composerBusy = true;
             updateComposerState();
             setComposerStatus("Sending…");
-
+        
             try {
                 let media = null;
-
+        
                 if (selectedAttachment) {
                     media = {
                         type: selectedAttachment.type?.startsWith("image/")
@@ -2680,44 +3168,64 @@
                             : selectedAttachment.type?.startsWith("audio/")
                             ? "audio"
                             : "document",
-                        mimetype: selectedAttachment.type || "application/octet-stream",
+        
+                        mimetype:
+                            selectedAttachment.type ||
+                            "application/octet-stream",
+        
                         fileName: selectedAttachment.name,
+        
                         base64: await fileToBase64(selectedAttachment),
+        
                         ptt: selectedAttachment.type?.startsWith("audio/")
                     };
                 }
-
+        
                 const response = await fetch("/api/messages/send", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
                     body: JSON.stringify({
                         conversation_key: conversationKey,
                         text,
                         media,
-                        reply_to: replyTarget?.conversation_key === conversationKey ? replyTarget.id : null
+                        reply_to:
+                            replyTarget?.conversation_key === conversationKey
+                                ? replyTarget.id
+                                : null
                     })
                 });
-
+        
                 const result = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(result.error || "Message could not be sent");
-
+        
+                if (!response.ok) {
+                    throw new Error(
+                        result.error || "Message could not be sent"
+                    );
+                }
+        
                 if (input) {
                     input.value = "";
                     input.style.height = "auto";
                 }
+        
                 clearAttachment();
                 clearReplyTarget();
                 el("emojiMenu")?.classList.add("hidden");
+        
                 setComposerStatus("Message sent.", "success");
-                await openConversation(conversationKey);
+        
             } catch (error) {
-                setComposerStatus(error.message || "Message could not be sent", "error");
+                setComposerStatus(
+                    error.message || "Message could not be sent",
+                    "error"
+                );
             } finally {
                 composerBusy = false;
                 updateComposerState();
             }
         }
-
         async function fetchHealth() {
             try {
                 const r = await fetch("/api/health");
@@ -2750,37 +3258,73 @@
             if (h) return `${h}h ${m}m`;
             return `${m}m`;
         }
+
+        function renderAdminSessions(data) {
+            const sessions = Array.isArray(data)
+                ? data
+                : data?.sessions || []
         
-        function renderAdminSessions(sessions) {
-            const list = el("adminSessionsList");
-            const count = el("wa-setting-count");
-            const currentSession = Array.isArray(sessions) && sessions.length
-                ? sessions[0]
-                : null;
-            const visibleSessions = currentSession ? [currentSession] : [];
-            if (count) count.innerText = visibleSessions.length;
-            if (!visibleSessions.length) {
-                list.innerHTML = `<div class="text-center py-6 border border-anon-border border-dashed rounded-xl bg-anon-panel/40 text-anon-muted text-xs">No active WhatsApp accounts linked.</div>`;
-                return;
+            if (!adminSessionId && sessions.length) {
+                adminSessionId = sessions[0].id
+                localStorage.setItem("adminSession", adminSessionId)
             }
+        
+            const list = el("adminSessionsList")
+            const count = el("wa-setting-count")
+        
+            const currentSession = adminSessionId
+                ? sessions.find(s => String(s.id) === String(adminSessionId))
+                : sessions[0]
+        
+            const visibleSessions = currentSession ? [currentSession] : []
+        
+            if (count)
+                count.innerText = visibleSessions.length
+        
+            if (!visibleSessions.length) {
+                list.innerHTML = `
+                    <div class="text-center py-6 border border-anon-border border-dashed rounded-xl bg-anon-panel/40 text-anon-muted text-xs">
+                        No active WhatsApp accounts linked.
+                    </div>
+                `
+                return
+            }
+        
             list.innerHTML = visibleSessions.map(s => {
-                const online = s.status === "connected";
+                const online = s.status === "connected"
+        
                 return `
                     <div class="flex items-center justify-between p-3.5 bg-anon-panel border border-anon-border rounded-xl shadow-sm">
                         <div class="flex items-center gap-3">
                             <div class="w-9 h-9 bg-anon-sidebar rounded-lg flex items-center justify-center border border-anon-border text-anon-accent">
                                 <i class="fa-brands fa-whatsapp text-lg"></i>
                             </div>
+        
                             <div>
-                                <p class="font-bold text-xs text-anon-text">${escapeHtml(s.phone || s.id || "Main Session")}</p>
-                                <p class="text-[10px] ${online ? "text-anon-accent" : "text-amber-500"} font-medium font-mono capitalize">${escapeHtml(s.status || "disconnected")}</p>
+                                <p class="font-bold text-xs text-anon-text">
+                                    ${escapeHtml(s.phone || s.id || "Main Session")}
+                                </p>
+        
+                                <p class="text-[10px] ${
+                                    online
+                                        ? "text-anon-accent"
+                                        : "text-amber-500"
+                                } font-medium font-mono capitalize">
+                                    ${escapeHtml(s.status || "disconnected")}
+                                </p>
                             </div>
                         </div>
-                        <button onclick="promptLogout('${escapeAttr(s.id || "")}')" class="px-3 py-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg text-xs font-semibold transition-colors">Logout</button>
-                    </div>`;
-            }).join("");
-        }
         
+                        <button
+                            onclick="promptLogout('${escapeAttr(s.id || "")}')"
+                            class="px-3 py-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg text-xs font-semibold transition-colors">
+                            Logout
+                        </button>
+                    </div>
+                `
+            }).join("")
+        }
+       
         function openModal(id) {
             el(id).classList.remove("hidden");
             el(id).classList.add("flex");
@@ -2922,7 +3466,151 @@
 
         }
 
+        function toggleMediaSelector(){
+            const modal = el('mediaSelector')
+            setTimeout(() => {
+            modal.classList.toggle('hidden')
+            }, 50)
+            const smodal = el('stickerMenu')
+            const emodal = el('emojiMenu')
+
+            smodal.classList.contains('hidden') ? '' : toggleStickerMenu()
+            emodal.classList.contains('hidden') ? '' : toggleEmojiMenu()
+        }
+
+        function handleMediaType(type){
+
+            const modal = el('mediaSelector')
+            
+            let attr = 'image/*'
+            const inp = el("attachmentInput")
+            if(inp && type){
+
+                inp.setAttribute('accept', 'image/*')
+                type == 'pic' 
+                ? attr = 'image/*'
+                : type == 'audio' 
+                ? attr = 'audio/*' 
+                : type == 'video' 
+                ? attr = 'video/*'
+                : type == 'doc' 
+                ? attr = '.doc, .pdf, .xls, .txt, .py, .html, .svg, .zip'
+                : type == 'contact' 
+                ? toggleContactShare() 
+                : attr = "*"
+
+                inp.setAttribute('accept', attr)
+                setTimeout(() =>{
+                    modal.classList.add('hidden')
+                    openAttachmentPicker()
+
+                }, 50)
+            }
+        }
+
+        function toggleContactShare(){
+            el('contactsShare')?.classList.toggle('hidden')
+        }
+
         window.onload = () => checkAuth();
         </script>
+
+
+        <script>
+            const fileInput = document.getElementById("vcfFile")
+            const uploadBtn = document.getElementById("uploadBtn")
+            const status = document.getElementById("status")
+            const contactsBox = document.getElementById("contacts")
+            
+            uploadBtn?.addEventListener("click", async () => {
+                const file = fileInput.files[0]
+            
+                if (!file)
+                    return status.textContent = "Please select a VCF file."
+            
+                if (!file.name.toLowerCase().endsWith(".vcf"))
+                    return status.textContent = "Please select a valid VCF file."
+            
+                const formData = new FormData()
+                formData.append("file", file)
+            
+                uploadBtn.disabled = true
+                uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Importing...'
+                status.textContent = "Importing contacts..."
+            
+                try {
+                    const response = await fetch("/api/contacts/import", {
+                        method: "POST",
+                        body: formData
+                    })
+            
+                    const result = await response.json()
+            
+                    if (!response.ok)
+                        throw new Error(result.error || "Import failed")
+            
+                    status.textContent =
+                        `Imported ${result.imported} contacts and ${result.phone_numbers} phone numbers.`
+            
+                    fileInput.value = ""
+                    await loadContacts()
+            
+                } catch (error) {
+                    status.textContent = error.message || "Import failed"
+                } finally {
+                    uploadBtn.disabled = false
+                    uploadBtn.innerHTML =
+                        '<i class="fa-solid fa-cloud-arrow-up"></i> Import Contacts'
+                }
+            })
+            
+            async function loadContacts() {
+                try {
+                    const response = await fetch("/api/contacts/all")
+                    const data = await response.json()
+                    const contacts = data.contacts || []
+            
+                    if (!contacts.length) {
+                        contactsBox.innerHTML =
+                            '<p class="p-4 text-center text-xs text-anon-muted">No contacts imported yet.</p>'
+                        return
+                    }
+            
+                    contactsBox.innerHTML = `
+                        <div class="px-2 py-2 text-[9px] font-mono text-anon-muted">
+                            ${contacts.length} contact entries
+                        </div>
+            
+                        <div class="space-y-1">
+                            ${contacts.map(contact => `
+                                <div class="p-2.5 rounded-lg bg-black/20 border border-anon-border hover:bg-anon-panel/60 transition-colors">
+                                    <div class="text-xs font-semibold text-anon-text truncate">
+                                        ${escapeHtml(contact.name)}
+                                    </div>
+            
+                                    ${contact.phone ? `
+                                        <div class="text-[10px] text-anon-muted mt-0.5">
+                                            <i class="fa-solid fa-phone text-[8px] mr-1"></i>
+                                            ${escapeHtml(contact.phone)}
+                                        </div>
+                                    ` : ""}
+            
+                                    ${contact.email ? `
+                                        <div class="text-[10px] text-anon-muted mt-0.5">
+                                            <i class="fa-solid fa-envelope text-[8px] mr-1"></i>
+                                            ${escapeHtml(contact.email)}
+                                        </div>
+                                    ` : ""}
+                                </div>
+                            `).join("")}
+                        </div>
+                    `
+                } catch {
+                    contactsBox.innerHTML =
+                        '<p class="p-4 text-center text-xs text-red-400">Failed to load contacts.</p>'
+                }
+            }
+            
+            </script>
 </body>
 </html>

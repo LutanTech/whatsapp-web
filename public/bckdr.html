@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Action Console</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        },
+                        admin: {
+                            bg: '#090d16',
+                            card: '#111827',
+                            border: '#1f2937',
+                            input: '#0b0f19',
+                            muted: '#9ca3af'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'Fira Code', 'Courier New', 'monospace'],
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090d16;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+        }
+
+        /* Custom scrollbar for console log */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 3px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-200 flex flex-col justify-between items-center p-4 md:p-6 antialiased">
+
+    <!-- Toast Notification Container (Replacing alert()) -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none"></div>
+
+    <!-- Top Navigation / Admin Status Bar -->
+    <header class="w-full max-w-2xl flex items-center justify-between py-3 px-4 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-xl mb-6 shadow-xl">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20 text-indigo-400">
+                <i class="fas fa-shield-halved text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-xs font-mono tracking-wider text-slate-400 uppercase">System Gateway</h1>
+                <span class="text-sm font-semibold text-slate-100 flex items-center gap-2">
+                    Admin Command Console
+                    <span class="px-1.5 py-0.5 text-[10px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800/50 rounded">v2.4</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Connection Status Badge -->
+        <div id="statusBadge" class="flex items-center gap-2 px-3 py-1.5 bg-slate-950/60 border border-slate-800 rounded-full text-xs font-mono text-slate-400">
+            <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="statusText">ONLINE</span>
+        </div>
+    </header>
+
+    <main class="w-full max-w-md my-auto">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl">
+            
+            <!-- Card Header Banner -->
+            <div class="bg-slate-950/80 px-6 py-5 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                        <i class="fas fa-key text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-semibold text-white">Elevated Execution</h2>
+                        <p class="text-xs text-slate-400">Authentication token required</p>
+                    </div>
+                </div>
+                <span class="text-xs font-mono text-amber-400/80 bg-amber-400/10 border border-amber-400/20 px-2 py-1 rounded">
+                    RESTRICTED
+                </span>
+            </div>
+
+            <!-- Form Body -->
+            <form id="pad" class="p-6 space-y-5">
+                
+                <!-- Password Input Group -->
+                <div class="space-y-2">
+                    <label for="password" class="block text-xs font-mono font-medium text-slate-300 uppercase tracking-wider">
+                        Master Key / Password
+                    </label>
+                    <div class="relative flex items-center group">
+                        <div class="absolute left-3 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+                            <i class="fas fa-lock text-sm"></i>
+                        </div>
+                        <input
+                            type="password"
+                            name="password"
+                            id="password"
+                            required
+                            autocomplete="current-password"
+                            placeholder="••••••••••••••••"
+                            class="w-full bg-slate-950 text-slate-100 placeholder-slate-600 pl-10 pr-10 py-3 rounded-xl border border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all text-sm font-mono tracking-widest"
+                        >
+                        <button 
+                            type="button" 
+                            id="togglePassword"
+                            class="absolute right-3 text-slate-500 hover:text-slate-300 transition-colors p-1"
+                            title="Toggle Password Visibility"
+                        >
+                            <i class="fas fa-eye text-sm" id="toggleIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Action Controls -->
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <!-- Reload Button -->
+                    <button 
+                        type="button" 
+                        id="reloadBtn"
+                        class="flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-800 text-slate-200 border border-slate-700/60 rounded-xl font-medium text-xs font-mono tracking-wide transition-all shadow-lg hover:shadow-slate-900/50 disabled:opacity-50 disabled:cursor-not-allowed group"
+                    >
+                        <i class="fas fa-rotate text-slate-400 group-hover:rotate-180 transition-transform duration-500"></i>
+                        <span>RELOAD</span>
+                    </button>
+
+                    <!-- Submit / Execute Button -->
+                    <button 
+                        type="submit" 
+                        id="submitBtn"
+                        class="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white border border-indigo-400/30 rounded-xl font-semibold text-xs font-mono tracking-wide transition-all shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <i class="fas fa-terminal"></i>
+                        <span>EXECUTE</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Live Terminal Log Stream -->
+            <div class="border-t border-slate-800/80 bg-slate-950 p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2 text-[11px] font-mono text-slate-400">
+                        <i class="fas fa-code text-indigo-400"></i>
+                        <span>EXECUTION LOG</span>
+                    </div>
+                    <button id="clearLogs" class="text-[10px] font-mono text-slate-500 hover:text-slate-300 transition-colors">
+                        CLEAR
+                    </button>
+                </div>
+                <div id="consoleLog" class="h-28 overflow-y-auto custom-scroll font-mono text-[11px] space-y-1 bg-black/40 p-2.5 rounded-lg border border-slate-800/60 text-slate-400">
+                    <div class="text-slate-500">[SYS] Admin console initialized. Ready.</div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer Security Notice -->
+    <footer class="w-full max-w-md text-center py-4 text-xs text-slate-600 font-mono">
+        <p><i class="fas fa-user-shield mr-1"></i> Authorized Personnel Only • IP Logged</p>
+    </footer>
+
+    <script>
+        // DOM Elements
+        const socket = typeof io !== 'undefined' ? io() : null;
+        const pad = document.getElementById("pad");
+        const password = document.getElementById("password");
+        const reloadBtn = document.getElementById("reloadBtn");
+        const submitBtn = document.getElementById("submitBtn");
+        const togglePassword = document.getElementById("togglePassword");
+        const toggleIcon = document.getElementById("toggleIcon");
+        const consoleLog = document.getElementById("consoleLog");
+        const clearLogsBtn = document.getElementById("clearLogs");
+        const statusBadge = document.getElementById("statusBadge");
+        const statusDot = document.getElementById("statusDot");
+        const statusText = document.getElementById("statusText");
+
+        // Socket Event listeners
+        if (socket) {
+            socket.on("connect", () => {
+                updateConnectionStatus(true);
+                addLog("[NET] Socket connection established.", "emerald");
+            });
+
+            socket.on("disconnect", () => {
+                updateConnectionStatus(false);
+                addLog("[NET] Socket disconnected.", "rose");
+            });
+
+            socket.on("logout", () => {
+                localStorage.clear();
+                addLog("[AUTH] Session terminated by server. Storage cleared.", "amber");
+                showToast("Session logged out by remote administrator.", "warning");
+            });
+        } else {
+            addLog("[SYS] Standalone mode (Socket.IO client unavailable).", "slate");
+        }
+
+        // Toggle Password Visibility
+        togglePassword.addEventListener("click", () => {
+            const isPassword = password.getAttribute("type") === "password";
+            password.setAttribute("type", isPassword ? "text" : "password");
+            toggleIcon.className = isPassword ? "fas fa-eye-slash text-sm text-indigo-400" : "fas fa-eye text-sm";
+        });
+
+        // Clear terminal output
+        clearLogsBtn.addEventListener("click", () => {
+            consoleLog.innerHTML = `<div class="text-slate-500">[SYS] Log buffer cleared.</div>`;
+        });
+
+        // Helper: Update Socket Status UI
+        function updateConnectionStatus(isConnected) {
+            if (isConnected) {
+                statusDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+                statusText.textContent = "ONLINE";
+                statusBadge.className = "flex items-center gap-2 px-3 py-1.5 bg-emerald-950/30 border border-emerald-800/40 rounded-full text-xs font-mono text-emerald-400";
+            } else {
+                statusDot.className = "w-2 h-2 rounded-full bg-rose-500";
+                statusText.textContent = "OFFLINE";
+                statusBadge.className = "flex items-center gap-2 px-3 py-1.5 bg-rose-950/30 border border-rose-800/40 rounded-full text-xs font-mono text-rose-400";
+            }
+        }
+
+        // Helper: Append formatted terminal logs
+        function addLog(message, color = "slate") {
+            const now = new Date();
+            const timeStr = now.toTimeString().split(" ")[0];
+            const div = document.createElement("div");
+            
+            let colorClass = "text-slate-400";
+            if (color === "emerald") colorClass = "text-emerald-400";
+            if (color === "amber") colorClass = "text-amber-400";
+            if (color === "rose") colorClass = "text-rose-400";
+            if (color === "indigo") colorClass = "text-indigo-400";
+
+            div.className = `${colorClass} leading-relaxed`;
+            div.innerHTML = `<span class="text-slate-600">[${timeStr}]</span> ${escapeHtml(message)}`;
+            
+            consoleLog.appendChild(div);
+            consoleLog.scrollTop = consoleLog.scrollHeight;
+        }
+
+        // Helper: HTML escaper for safety
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        // Custom Toast Notification (Replaces native alert)
+        function showToast(message, type = "info") {
+            const container = document.getElementById("toastContainer");
+            const toast = document.createElement("div");
+            
+            let borderClass = "border-slate-700 bg-slate-900 text-slate-100";
+            let icon = "fa-circle-info text-indigo-400";
+
+            if (type === "success") {
+                borderClass = "border-emerald-500/40 bg-emerald-950/90 text-emerald-200 shadow-emerald-950/50";
+                icon = "fa-circle-check text-emerald-400";
+            } else if (type === "error") {
+                borderClass = "border-rose-500/40 bg-rose-950/90 text-rose-200 shadow-rose-950/50";
+                icon = "fa-triangle-exclamation text-rose-400";
+            } else if (type === "warning") {
+                borderClass = "border-amber-500/40 bg-amber-950/90 text-amber-200 shadow-amber-950/50";
+                icon = "fa-shield-cat text-amber-400";
+            }
+
+            toast.className = `pointer-events-auto flex items-center gap-3 p-4 rounded-xl border ${borderClass} backdrop-blur-md shadow-xl transition-all duration-300 transform translate-y-2 opacity-0 text-sm font-medium`;
+            toast.innerHTML = `
+                <i class="fas ${icon} text-base shrink-0"></i>
+                <span class="flex-1">${escapeHtml(message)}</span>
+                <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white text-xs">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+
+            // Animate entry
+            requestAnimationFrame(() => {
+                toast.classList.remove("translate-y-2", "opacity-0");
+            });
+
+            // Auto dismiss after 4 seconds
+            setTimeout(() => {
+                toast.classList.add("opacity-0", "translate-y-[-8px]");
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Set Loading State
+        function toggleState(isPending) {
+            reloadBtn.disabled = isPending;
+            submitBtn.disabled = isPending;
+        }
+
+        function setLoading(button, text) {
+            toggleState(true);
+            button.dataset.originalHtml = button.innerHTML;
+            button.innerHTML = `
+                <i class="fas fa-circle-notch fa-spin"></i>
+                <span>${text}</span>
+            `;
+        }
+
+        function resetButton(button) {
+            if (button.dataset.originalHtml) {
+                button.innerHTML = button.dataset.originalHtml;
+            }
+            toggleState(false);
+        }
+
+        // Core API Action Executer
+        async function sendAction(endpoint, button, loadingText, actionName) {
+            const pwdVal = password.value.trim();
+            if (!pwdVal) {
+                password.focus();
+                showToast("Please enter master key/password.", "warning");
+                return;
+            }
+
+            setLoading(button, loadingText);
+            addLog(`[REQ] Sending ${actionName} to ${endpoint}...`, "indigo");
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ password: pwdVal })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.success && data.token) {
+                    addLog(`[RES] ${actionName} executed successfully. Token granted.`, "emerald");
+                    showToast(`${actionName} completed successfully.`, "success");
+                } else {
+                    const err = data.error || "Execution rejected by remote host";
+                    addLog(`[ERR] ${actionName} failed: ${err}`, "rose");
+                    showToast(err, "error");
+                }
+            } catch (err) {
+                const msg = err.message || "Network connection failure";
+                addLog(`[EXC] Network error during ${actionName}: ${msg}`, "rose");
+                showToast(`Request Failed: ${msg}`, "error");
+            } finally {
+                resetButton(button);
+            }
+        }
+
+        // Event Handlers
+        pad.addEventListener("submit", e => {
+            e.preventDefault();
+            sendAction("/api/bckdr", submitBtn, "EXECUTING...", "EXECUTE");
+        });
+
+        reloadBtn.addEventListener("click", () => {
+            sendAction("/api/pageReload", reloadBtn, "RELOADING...", "PAGE_RELOAD");
+        });
+    </script>
+</body>
+</html>
