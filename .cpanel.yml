@@ -1,7 +1,7 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home3/tunupublsh/web
+    - export DEPLOYPATH=/home3/tunupublsh/whatsapp-web
     - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R * $DEPLOYPATH/
     - cd $DEPLOYPATH && npm install --omit=dev
