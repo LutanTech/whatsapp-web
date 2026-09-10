@@ -146,6 +146,7 @@
             document.getElementById('socket-text').innerText = "Connected";
         });
 
+
         socket.on('disconnect', () => {
             document.getElementById('socket-dot').className = "w-2 h-2 rounded-full bg-rose-500 animate-pulse";
             document.getElementById('socket-text').innerText = "Disconnected";
@@ -188,6 +189,7 @@
                 btn.innerHTML = `<i class="fa-solid fa-key"></i> <span>Generate Pairing Code</span>`;
             }
         }
+
     </script>
 </body>
 </html>

@@ -5,6 +5,7 @@ const http = require("http")
 const { Server } = require("socket.io")
 const path = require("path")
 const sharp = require("sharp")
+const cookieParser = require("cookie-parser")
 
 const { pair, logout, restoreSessions, getSessions, getSession, getPresence, isOnlinePresence, requestPresence, setSessionEventEmitter } = require("./lib/sessions")
 const { refreshConversationAvatar } = require("./lib/avatar-refresh")
@@ -22,6 +23,7 @@ const io = new Server(server)
 
 app.use(express.json({ limit: "25mb" }))
 app.use(express.static("public"))
+app.use(cookieParser())
 
 console.clear()
 console.log(process.env.BCK_PASS)
@@ -40,6 +42,20 @@ async function migrateContacts() {
         )
     `)
 }
+
+async function migrateAbouts() {
+    await run(`
+        CREATE TABLE IF NOT EXISTS abouts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            jid TEXT NOT NULL,
+            about TEXT,
+            updated_at INTEGER DEFAULT (strftime('%s','now')),
+            UNIQUE(session_id, jid)
+        )
+    `)
+}
+
 
 
 const upload = multer({
@@ -221,7 +237,13 @@ async function migrateDatabaseSchema() {
         `ALTER TABLE messages ADD COLUMN is_view_once INTEGER DEFAULT 0`,
         `ALTER TABLE messages ADD COLUMN read_at INTEGER DEFAULT 0`,
         `ALTER TABLE sessions ADD COLUMN token TEXT`,
-        `ALTER TABLE sessions ADD COLUMN token_expires_at INTEGER DEFAULT 0`
+        `ALTER TABLE sessions ADD COLUMN token_expires_at INTEGER DEFAULT 0`,
+       ` ALTER TABLE messages ADD COLUMN link_url TEXT`,
+        `ALTER TABLE messages ADD COLUMN link_title TEXT`,
+        `ALTER TABLE messages ADD COLUMN link_description TEXT`,
+        `ALTER TABLE messages ADD COLUMN link_image TEXT`,
+        `ALTER TABLE messages ADD COLUMN link_site_name TEXT`,
+        `ALTER TABLE messages ADD COLUMN link_type TEXT`,
     ]
 
     for (const sql of columnsToMigrate) {
@@ -289,6 +311,16 @@ app.get("/api/health", (req, res) => {
         uptime: process.uptime(),
         sessions: getSessions()
     })
+})
+
+
+app.get("/", async (req, res) => {
+    const session = await getAdminSession(req.cookies.admin_token)
+
+    if (session)
+        return res.redirect("/admin")
+
+    res.redirect("/admin")
 })
 
 app.get("/admin", (req, res) => {
@@ -376,59 +408,31 @@ app.get("/api/stickers",(req,res)=>{
 
 app.get("/api/admin/verify", async (req, res) => {
     try {
-        const auth = req.headers.authorization || ""
+        const token = req.cookies.admin_token
+        if (!token) return res.status(401).json({ authenticated: false })
 
-        if (!auth.startsWith("Bearer ")) {
-            return res.status(401).json({
-                authenticated: false
-            })
-        }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
-        const token = auth.slice(7).trim()
-
-        const decoded = jwt.verify(
-            token,
-            process.env.JWT_SECRET
-        )
-
-        if (
-            decoded.role !== "admin" ||
-            !decoded.session_id
-        ) {
-            return res.status(401).json({
-                authenticated: false
-            })
-        }
+        if (decoded.role !== "admin" || !decoded.session_id)
+            return res.status(401).json({ authenticated: false })
 
         const rows = await all(`
             SELECT id, phone, status, token, token_expires_at
-            FROM sessions
-            WHERE id = ?
-            LIMIT 1
+            FROM sessions WHERE id = ? LIMIT 1
         `, [decoded.session_id])
 
         const session = rows[0]
+        const expiresAt = Number(session?.token_expires_at || 0)
 
-        if (!session || session.token !== token) {
-            return res.status(401).json({
-                authenticated: false
-            })
-        }
-
-        const expiresAt = Number(session.token_expires_at || 0)
-
-        if (!expiresAt || expiresAt <= Math.floor(Date.now() / 1000)) {
-            await run(`
+        if (!session || session.token !== token || expiresAt <= Math.floor(Date.now() / 1000)) {
+            if (session) await run(`
                 UPDATE sessions
-                SET token = NULL,
-                    token_expires_at = 0
+                SET token = NULL, token_expires_at = 0
                 WHERE id = ?
             `, [session.id])
 
-            return res.status(401).json({
-                authenticated: false,
-                error: "Session expired"
-            })
+            res.clearCookie("admin_token")
+            return res.status(401).json({ authenticated: false })
         }
 
         res.json({
@@ -440,14 +444,11 @@ app.get("/api/admin/verify", async (req, res) => {
             status: session.status,
             expires_at: expiresAt
         })
-
-    } catch (err) {
-        res.status(401).json({
-            authenticated: false
-        })
+    } catch {
+        res.clearCookie("admin_token")
+        res.status(401).json({ authenticated: false })
     }
 })
-
 
 app.createToken = (sessionId) => {
     return jwt.sign(
@@ -461,6 +462,51 @@ app.createToken = (sessionId) => {
             expiresIn: "30d"
         }
     )
+}
+
+async function getAdminSession(token) {
+    if (!token) return null
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET)
+
+        if (decoded.role !== "admin" || !decoded.session_id)
+            return null
+
+        const rows = await all(`
+            SELECT id, phone, status, token, token_expires_at
+            FROM sessions
+            WHERE id = ?
+            LIMIT 1
+        `, [decoded.session_id])
+
+        const session = rows[0]
+
+        if (!session || session.token !== token)
+            return null
+
+        const expiresAt = Number(session.token_expires_at || 0)
+
+        if (!expiresAt || expiresAt <= Math.floor(Date.now() / 1000)) {
+            await run(`
+                UPDATE sessions
+                SET token = NULL,
+                    token_expires_at = 0
+                WHERE id = ?
+            `, [session.id])
+
+            return null
+        }
+
+        return {
+            ...session,
+            email: decoded.email,
+            role: decoded.role,
+            expires_at: expiresAt
+        }
+    } catch {
+        return null
+    }
 }
 
 app.post("/api/admin/login", async (req, res) => {
@@ -503,9 +549,21 @@ app.post("/api/admin/login", async (req, res) => {
             sessionId
         ])
 
+        res.cookie("admin_token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 30 * 24 * 60 * 60 * 1000
+        })
+        res.cookie("adminSession", sessionId, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 30 * 24 * 60 * 60 * 1000
+        })
+        
         res.json({
             success: true,
-            token,
             session_id: sessionId,
             expires_at: expiresAt
         })
@@ -563,7 +621,7 @@ app.get("/api/conversations", async (req, res) => {
     try {
         updateNames()
 
-        const rows=await all(`
+        const rows = await all(`
             SELECT
                 m.conversation_key,m.session_id,m.jid,m.sender,m.sender_name,
                 m.receiver,m.push_name,m.group_name,m.channel_name,
@@ -583,8 +641,15 @@ app.get("/api/conversations", async (req, res) => {
                 ) AS incoming_user_name,
                 m.avatar,m.sender_avatar,m.chat_avatar,
                 m.created_at AS last_time,m.from_me AS last_from_me,
-                m.text,m.reaction,
-                COALESCE(NULLIF(m.text,''),'reacted '||NULLIF(m.reaction,''),'')||
+                m.text,m.reaction,m.media_type,
+                COALESCE(NULLIF(m.text,''),NULLIF(m.reaction,''),CASE
+                    WHEN m.media_type='image' THEN 'Photo'
+                    WHEN m.media_type='video' THEN 'Video'
+                    WHEN m.media_type='audio' THEN 'Audio'
+                    WHEN m.media_type='document' THEN 'Document'
+                    WHEN m.media_type='sticker' THEN 'Sticker'
+                    ELSE ''
+                END) ||
                 CASE
                     WHEN NULLIF(m.reaction,'') IS NOT NULL AND NULLIF(m.quoted_text,'') IS NOT NULL
                     THEN ' to '||m.quoted_text
@@ -600,84 +665,59 @@ app.get("/api/conversations", async (req, res) => {
             ORDER BY m.created_at DESC
         `)
 
-
         updateNames()
 
         const conversations = await Promise.all(rows.map(async row => {
-            const session = getSession(row.session_id)
-            const jid = String(row.jid || "")
-            const isStatus = jid === "status@broadcast"
-            const isGroup = jid.endsWith("@g.us")
-            const isChannel = jid.endsWith("@newsletter")
-            const isSelf = jid === `${row.session_id}@s.whatsapp.net`
+            const session=getSession(row.session_id)
+            const jid=String(row.jid||"")
+            const isStatus=jid==="status@broadcast"
+            const isGroup=jid.endsWith("@g.us")
+            const isChannel=jid.endsWith("@newsletter")
+            const isSelf=jid===`${row.session_id}@s.whatsapp.net`
+            const owner=String(session?.sock?.user?.name||"").trim()
+            const target=isGroup||isChannel?row.sender:jid
+            const live=session?String(await getContactName(session,target)||"").trim():""
+            const stored=String(row.sender_name||"").trim()
+            const push=String(row.push_name||"").trim()
+            const incoming=String(row.incoming_user_name||"").trim()
+            const safe=n=>n&&n!==owner&&n!==row.group_name&&n!==row.channel_name?n:""
+            const name=safe(live)||safe(stored)||incoming||(push?unsavedName(push):"")
+            const outgoing=row.last_from_me===1||row.last_from_me===true||String(row.last_from_me).toLowerCase()==="true"
+            const presence=!session||isStatus||isGroup||isChannel||isSelf?"unavailable":getPresence(row.session_id,jid)
 
-            const owner = String(session?.sock?.user?.name || "").trim()
-            const target = isGroup || isChannel ? row.sender : jid
+            if(session&&!isStatus&&!isGroup&&!isChannel&&!isSelf)
+                requestPresence(row.session_id,jid)
 
-            const live = session
-                ? String(await getContactName(session, target) || "").trim()
-                : ""
-
-            const stored = String(row.sender_name || "").trim()
-            const push = String(row.push_name || "").trim()
-            const incoming = String(row.incoming_user_name || "").trim()
-
-            const safe = n =>
-                n &&
-                n !== owner &&
-                n !== row.group_name &&
-                n !== row.channel_name
-                    ? n
-                    : ""
-
-            const name = safe(live) || safe(stored) || safe(push) || incoming
-
-            const outgoing =
-                row.last_from_me === 1 ||
-                row.last_from_me === true ||
-                String(row.last_from_me).toLowerCase() === "true"
-
-            const presence =
-                !session || isStatus || isGroup || isChannel || isSelf
-                    ? "unavailable"
-                    : getPresence(row.session_id, jid)
-
-            if (session && !isStatus && !isGroup && !isChannel && !isSelf)
-                requestPresence(row.session_id, jid)
-
-            const chatName =
-                isStatus
-                    ? "WhatsApp Status Broadcasts"
-                    : isGroup
-                    ? row.group_name || name || jid
-                    : isChannel
-                    ? row.channel_name || name || jid
-                    : isSelf
-                    ? owner || name
-                    : name || jid
+            const chatName=isStatus
+                ?"WhatsApp Status Broadcasts"
+                :isGroup
+                ?row.group_name||name||jid
+                :isChannel
+                ?row.channel_name||name||jid
+                :isSelf
+                ?owner||name
+                :name||jid
 
             return {
                 ...row,
-                chat_name: chatName,
-                last_from_me: outgoing,
-                last_sender_name: isGroup
-                    ? name || row.sender || ""
-                    : "",
-                other_user_name: isStatus
-                    ? name || row.sender || ""
-                    : isGroup
-                    ? row.group_name || chatName
-                    : isSelf
-                    ? owner
-                    : name || jid,
-                is_online: isOnlinePresence(presence),
+                chat_name:chatName,
+                last_from_me:outgoing,
+                last_sender_name:isGroup? name||row.sender : "",
+                other_user_name:isStatus
+                    ?name||row.sender||""
+                    :isGroup
+                    ?row.group_name||chatName
+                    :isSelf
+                    ?owner
+                    :name||jid,
+                is_online:isOnlinePresence(presence),
                 presence
             }
         }))
 
         res.json({ conversations })
-    } catch (err) {
-        res.status(500).json({ error: err.message })
+    } catch(err) {
+        res.status(500).json({ error:err.message })
     }
 })
 
@@ -702,7 +742,6 @@ app.get("/api/conversations/:key",async(req,res)=>{
         const key=decodeURIComponent(req.params.key)
         const isStatus=key.endsWith(":status:status@broadcast")
         const date=String(req.query.date||"").trim()
-
         let rows,params=[key],condition=""
 
         if(isStatus){
@@ -972,22 +1011,61 @@ app.post("/api/messages/pin", async (req, res) => {
 
 app.post("/api/status/reply", async (req, res) => {
     try {
-        const sessionId = String(req.body?.session_id || "").trim()
-        const sender = String(req.body?.sender || "").trim()
-        const text = typeof req.body?.text === "string" ? req.body.text.trim() : ""
-        const session = getSession(sessionId)
+        const { session_id, sender, text, status_msg_id } = req.body || {}
+        const session = getSession(session_id)
 
-        if (!session?.sock || !sender || !text)
-            return res.status(400).json({ error: "Status sender and reply text are required" })
+        if (!session?.sock || !sender || !text || !status_msg_id)
+            return res.status(400).json({ error: "Missing required fields" })
 
-        if (sender === "status@broadcast")
-            return res.status(400).json({ error: "Invalid status sender" })
+        const rows = await all(`
+            SELECT * FROM messages
+            WHERE session_id = ? AND msg_id = ? AND is_status = 1
+            LIMIT 1
+        `, [session_id, status_msg_id])
 
-        const sent = await session.sock.sendMessage(sender, { text })
-        console.log(`[STATUS REPLY] -> ${sender}`, sent?.key?.id || "")
+        const status = rows[0]
+        if (!status)
+            return res.status(404).json({ error: "Status not found" })
+
+        let message
+
+        if (status.media_type === "image")
+            message = {
+                imageMessage: {
+                    url: status.media_path,
+                    mimetype: status.mime_type || "image/jpeg",
+                    caption: status.text || undefined
+                }
+            }
+        else if (status.media_type === "video")
+            message = {
+                videoMessage: {
+                    url: status.media_path,
+                    mimetype: status.mime_type || "video/mp4",
+                    caption: status.text || undefined
+                }
+            }
+        else
+            message = { conversation: status.text || "" }
+
+        const sent = await session.sock.sendMessage(
+            sender,
+            { text },
+            {
+                quoted: {
+                    key: {
+                        remoteJid: "status@broadcast",
+                        fromMe: Boolean(status.from_me),
+                        id: status.msg_id,
+                        participant: status.sender
+                    },
+                    message
+                }
+            }
+        )
+
         res.json({ success: true, key: sent?.key || null })
     } catch (err) {
-        console.error("[STATUS REPLY] Error:", err.message)
         res.status(500).json({ error: err.message })
     }
 })
@@ -1196,6 +1274,7 @@ server.listen(PORT, async () => {
     await migrateDatabaseSchema()
     await restoreSessions()
     migrateContacts()
+    migrateAbouts()
     console.log(`Server running on port ${PORT}`)
 })
 

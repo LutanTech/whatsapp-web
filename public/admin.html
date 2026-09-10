@@ -20,7 +20,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" rel="stylesheet">
     
     <!-- Tailwind CSS -->
     <script src="/tailwind.js"></script>
@@ -94,6 +94,25 @@
             background-color: #030712;
             color: #f8fafc;
             height: 100%;
+        }
+        
+        .theme-emerald{
+            .text-anon-accent{
+                color:#abff00fc;
+            }
+            .bg-anon-accent{
+                background: black;
+            }
+            .bg-anon-accent{
+                background-color:#abff00fc;
+                background:#abff00fc;
+            }
+            .bg-anon-msgOut{
+                background: #02aa18;
+                *{
+                    color: black;
+                }
+            }
         }
 
         /* Glassmorphism Classes */
@@ -328,7 +347,7 @@
         body.theme-emerald #adminDashboard,
         body.theme-emerald #sidebar,
         body.theme-emerald #mainChatArea {
-            background-color: #031c1a;
+            background-color: #000000;
         }
         body.theme-emerald #chatMessagesContainer {
             background-color: #021311;
@@ -384,6 +403,16 @@
         .quick-reaction:hover {
             transform: translateY(-2px) scale(1.08);
             background: rgba(255,255,255,.08);
+        }
+        .checks{
+            position: relative;
+            padding-right:5px;
+            i:nth-of-type(2) {
+                position: absolute;
+                right: 0;
+                bottom: 3px;
+                text-shadow: -1px 0 0 #000000;
+            }
         }
     </style>
 </head>
@@ -530,7 +559,7 @@
                     <i class="fa-solid fa-users text-base mb-1"></i>
                     <span class="text-[10px] font-semibold">Groups</span>
                 </button>
-                <button onclick="setFilter('status')" id="nav-status" class="nav-tab flex flex-col items-center justify-center flex-1 h-full text-anon-muted border-t-2 border-transparent hover:text-anon-text transition-all py-1">
+                <button onclick="setFilter('status'); openCoversation(`${localStorage.getItem('adminAuth')}:status:status@broadcast'}`)" id="nav-status" class="nav-tab flex flex-col items-center justify-center flex-1 h-full text-anon-muted border-t-2 border-transparent hover:text-anon-text transition-all py-1">
                     <i class="fa-solid fa-bullhorn text-base mb-1"></i>
                     <span class="text-[10px] font-semibold">Updates</span>
                 </button>
@@ -599,7 +628,7 @@
                 </div>
 
                 <!-- Message Composer -->
-                <footer class="p-3 sm:px-5 bg-anon-sidebar border-t border-anon-border shrink-0">
+                <footer id="msg-footer" class="p-3 sm:px-5 bg-anon-sidebar border-t border-anon-border shrink-0">
                     <div id="replyPreview" class="composer-chip items-center gap-2 rounded-lg px-3 py-2 mb-2 text-[11px]">
                         <i class="fa-solid fa-reply text-anon-accent"></i>
                         <div class="min-w-0 flex-1">
@@ -1381,33 +1410,29 @@
         }
 
         async function verifyAuth() {
-            try {
-                const token = localStorage.getItem("adminAuth")
-        
-                if (!token)
-                    return false
-        
-                const r = await fetch("/api/admin/verify", {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                })
-        
+
+            try {   
+                fetch('/api/pair', {
+                    method : 'POST',
+                    headers:{
+                        'Content-Type':'application/json'
+                    },
+                    body:JSON.stringify({'phone':localStorage.getItem('adminSession')})
+                })   
+
+                const r = await fetch("/api/admin/verify")
+                
+
                 const d = await r.json()
+               
         
                 if (r.ok && d.authenticated) {
                     adminSessionId = d.session_id
-                    localStorage.setItem("adminSession", d.session_id)
+                    
                     return true
                 }
-        
-                localStorage.removeItem("adminAuth")
-                localStorage.removeItem("adminSession")
                 return false
-        
             } catch {
-                localStorage.removeItem("adminAuth")
-                localStorage.removeItem("adminSession")
                 return false
             }
         }
@@ -1419,8 +1444,6 @@
                 el("adminDashboard").classList.add("hidden");
                 return;
             }
-            console.log(await verifyAuth())
-
             el("loginGate").classList.add("hidden");
             el("loginGate").classList.remove("flex");
             el("unauthorizedScreen").classList.add("hidden");
@@ -1449,9 +1472,7 @@
                 const d = await r.json()
         
                 if (r.ok && d.success) {
-                    localStorage.setItem("adminAuth", d.token)
-                    localStorage.setItem("adminSession", d.session_id)
-        
+                    localStorage.setItem('adminSession', d.session_id)
                     checkAuth()
                     return
                 }
@@ -1537,7 +1558,7 @@
                             m.conversation_key === activeThread.conversation_key
                         ) {
                             if (m.jid === "status@broadcast") {
-                                // Re-render chat thread or push to global state so status lists update cleanly
+                                
                                 if (Array.isArray(window.currentChatMessages)) {
                                     const exists = window.currentChatMessages.some(x => x.id === m.id);
                                     if (!exists) {
@@ -1608,10 +1629,29 @@
         
             if (!filtered.length) {
                 c.innerHTML = `
-                    <div class="text-center py-12 text-anon-muted space-y-2">
-                        <i class="fa-solid fa-comments-question text-3xl opacity-30"></i>
-                        <p class="text-xs">No conversations matching current filter</p>
-                    </div>`;
+                <div class="space-y-3 p-3 animate-pulse">
+                    ${Array(6).fill(0).map(() => `
+                        <div class="flex items-center justify-between p-2 rounded-xl bg-anon-panel/30 border border-anon-border/30">
+                            <div class="flex items-center gap-3 min-w-0 flex-1">
+                                <!-- Avatar Skeleton -->
+                                <div class="w-12 h-12 rounded-2xl bg-slate-800/80 shrink-0"></div>
+                                
+                                <div class="flex-1 space-y-2 min-w-0 pr-2">
+                                    <!-- Title Line Skeleton -->
+                                    <div class="h-3.5 bg-slate-800/80 rounded w-3/5"></div>
+                                    <!-- Subtitle Line Skeleton -->
+                                    <div class="h-2.5 bg-slate-800/50 rounded w-4/5"></div>
+                                </div>
+                            </div>
+                
+                            <!-- Meta/Badge Skeleton -->
+                            <div class="flex flex-col items-end gap-2 shrink-0">
+                                <div class="h-2.5 bg-slate-800/50 rounded w-10"></div>
+                                <div class="w-5 h-5 rounded-full bg-slate-800/80"></div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>`;
                 return;
             }
         
@@ -1657,7 +1697,7 @@
                        </div>`;
         
                 return `
-                    <div onclick="openConversation('${escapeAttr(key)}')" class="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all relative group ${active ? "bg-anon-panel border border-anon-accent/40 shadow-lg shadow-emerald-950/20" : "hover:bg-anon-panel/60 border border-transparent"}">
+                    <div title="${previewPrefix + ': ' + msg}" onclick="openConversation('${escapeAttr(key)}')" class="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all relative group ${active ? "bg-anon-panel border border-anon-accent/40 shadow-lg shadow-emerald-950/20" : "hover:bg-anon-panel/60 border border-transparent"}">
                         <div class="relative shrink-0">
                             ${avatarHtml}
                             <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${isOnline ? "bg-emerald-500" : "bg-slate-500"} border-2 border-anon-sidebar" title="${isOnline ? "Online" : "Offline"}"></span>
@@ -1668,7 +1708,7 @@
                                 <span class="text-[10px] text-anon-muted shrink-0 font-mono">${formatChatTime(x.last_time)}</span>
                             </div>
                             <div class="flex items-center gap-1.5 text-[11px] text-anon-muted truncate">
-                                <i class="fa-solid ${lastMessageIsMine ? "fa-check-double text-anon-accent" : ''} text-[10px]"></i>
+                                ${lastMessageIsMine ? '<div class="checks"><i class="fa-solid fa-check text-anon-accent text-[10px]"></i><i class="fa-solid fa-check text-anon-accent text-[10px]"></i></div>' : ''} 
                                 <span class="truncate privacy-sensitive ${String(previewPrefix).startsWith('~') ? 'italic' : ''}">${!isGroup && !isStatus && !isChannel ? '' : previewPrefix + ' :' }<span style="font-style:normal;">${escapeHtml(msg)}</span></span>
                                 ${unreadCount ? `<span class="ml-auto shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-anon-accent text-slate-950 text-[10px] font-bold flex items-center justify-center" title="${unreadCount} unread message${unreadCount === 1 ? "" : "s"}">${unreadCount > 99 ? "99+" : unreadCount}</span>` : ""}
                             </div>
@@ -1696,8 +1736,14 @@
                         renderConversationsList();
                     })
                     .catch(() => {});
+
+           
             }
             updateComposerState();
+
+            conversation.jid == "status@broadcast" ?  el('msg-footer')?.classList.add('hidden') :  el('msg-footer')?.classList.remove('hidden')
+
+
         
             if (window.innerWidth < 768) {
                 el("sidebar").classList.add("hidden");
@@ -1737,10 +1783,58 @@
         
             const container = el("chatMessagesContainer");
             container.innerHTML = `
-                <div class="h-full flex flex-col items-center justify-center text-anon-muted space-y-2">
-                    <i class="fa-solid fa-circle-notch fa-spin text-2xl text-anon-accent"></i>
-                    <span class="text-xs">Fetching encrypted message logs...</span>
-                </div>`;
+            <div class="p-4 space-y-4 animate-pulse">
+                <!-- Incoming Message Skeleton -->
+                <div class="flex justify-start">
+                    <div class="max-w-[70%] w-80 p-3.5 rounded-2xl rounded-tl-none bg-anon-panel/40 border border-anon-border/40 space-y-2">
+                        <div class="h-3 bg-slate-800/80 rounded w-1/3"></div>
+                        <div class="h-3 bg-slate-800/60 rounded w-full"></div>
+                        <div class="h-3 bg-slate-800/60 rounded w-4/5"></div>
+                        <div class="flex justify-end">
+                            <div class="h-2 bg-slate-800/40 rounded w-10"></div>
+                        </div>
+                    </div>
+                </div>
+            
+                <!-- Outgoing Message Skeleton -->
+                <div class="flex justify-end">
+                    <div class="max-w-[70%] w-64 p-3.5 rounded-2xl rounded-tr-none bg-emerald-950/30 border border-emerald-800/30 space-y-2">
+                        <div class="h-3 bg-emerald-900/50 rounded w-full"></div>
+                        <div class="h-3 bg-emerald-900/50 rounded w-2/3"></div>
+                        <div class="flex justify-end gap-1 items-center">
+                            <div class="h-2 bg-emerald-900/40 rounded w-8"></div>
+                            <div class="w-3 h-3 rounded-full bg-emerald-900/40"></div>
+                        </div>
+                    </div>
+                </div>
+            
+                <!-- Incoming Reply Message Skeleton -->
+                <div class="flex justify-start">
+                    <div class="max-w-[70%] w-96 p-3.5 rounded-2xl rounded-tl-none bg-anon-panel/40 border border-anon-border/40 space-y-2.5">
+                        <div class="h-3 bg-slate-800/80 rounded w-1/4"></div>
+                        <!-- Quoted Box -->
+                        <div class="p-2.5 rounded-lg bg-black/40 border-l-2 border-emerald-500/50 space-y-1.5">
+                            <div class="h-2.5 bg-slate-800/60 rounded w-1/3"></div>
+                            <div class="h-2.5 bg-slate-800/40 rounded w-2/3"></div>
+                        </div>
+                        <div class="h-3 bg-slate-800/60 rounded w-5/6"></div>
+                        <div class="flex justify-end">
+                            <div class="h-2 bg-slate-800/40 rounded w-10"></div>
+                        </div>
+                    </div>
+                </div>
+            
+                <!-- Outgoing Message Skeleton -->
+                <div class="flex justify-end">
+                    <div class="max-w-[70%] w-72 p-3.5 rounded-2xl rounded-tr-none bg-emerald-950/30 border border-emerald-800/30 space-y-2">
+                        <div class="h-3 bg-emerald-900/50 rounded w-full"></div>
+                        <div class="flex justify-end gap-1 items-center">
+                            <div class="h-2 bg-emerald-900/40 rounded w-8"></div>
+                            <div class="w-3 h-3 rounded-full bg-emerald-900/40"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
         
             try {
                 const r = await fetch(`/api/conversations/${encodeURIComponent(key)}`);
@@ -1834,109 +1928,116 @@
         }
 
         function renderNormalMessages(messages) {
-            const reactionsMap = new Map();
+            const reactionsMap=new Map();
         
-            messages.forEach(m => {
-                if (m.reaction_msg_id && m.reaction) {
-                    if (!reactionsMap.has(m.reaction_msg_id)) reactionsMap.set(m.reaction_msg_id, []);
+            messages.forEach(m=>{
+                if(m.reaction_msg_id&&m.reaction){
+                    if(!reactionsMap.has(m.reaction_msg_id))reactionsMap.set(m.reaction_msg_id,[]);
                     reactionsMap.get(m.reaction_msg_id).push(m);
                 }
             });
         
-            return messages.filter(m => !m.reaction_msg_id).map(m => {
-                const self = Number(m.from_me) === 1;
-                const sender = m.push_name || m.sender_name || m.sender || "Contact";
-                const time = m.created_at
-                    ? new Date(Number(m.created_at) * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                    : "";
-                
-                const quoted = m.quoted_text && m.quoted_sender
-                    ? `<div class="mb-2 px-3 py-1.5 rounded-md bg-black/30 border-l-2 border-anon-accent cursor-pointer" quoted_msg_id="msg-${m.quoted_msg_id}" onclick="scrollToMsg('msg-${m.quoted_msg_id}')">
-                        <div class="text-[9px] font-bold text-anon-accent truncate">${escapeHtml(m.quoted_sender_name ||  "Replied Message")}</div>
-                        <div class="text-[10px] text-slate-300 line-clamp-2">${escapeHtml(m.quoted_text)}</div>
-                       </div>`
-                    : "";
+            return messages.filter(m=>!m.reaction_msg_id).map(m=>{
+                const self=Number(m.from_me)===1;
+                const sender=m.push_name||m.sender_name||m.sender||"Contact";
+                const time=m.created_at
+                    ?new Date(Number(m.created_at)*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})
+                    :"";
         
-                let media = "";
-                if (m.media_path) {
-                    if (m.media_type === "image" || m.mime_type?.startsWith("image/")) {
-                        media = `<div class="mb-1.5 overflow-hidden rounded-lg border border-white/10">
-                            <img onerror="this.src='/errors/message-error.png'"  src="${escapeHtml(m.media_path)}" class="w-full  max-h-60 object-cover cursor-pointer hover:scale-105 transition-transform" ${m.media_type == 'sticker' ? 'style="max-width:120px; max-height:120px"' : ''} onerror="this.onclick='showToast();return;'" onclick="openMediaModal('${escapeHtml(m.media_path)}','image')"  ${m.media_type == 'sticker' ? 'onmouseover="this.src = this.src"':''}>
+                const quoted=m.quoted_text&&m.quoted_sender
+                    ?`<div class="mb-2 px-3 py-1.5 rounded-md bg-black/30 border-l-2 border-anon-accent cursor-pointer" quoted_msg_id="msg-${m.quoted_msg_id}" onclick="scrollToMsg('msg-${m.quoted_msg_id}')">
+                        <div class="text-[9px] font-bold text-anon-accent truncate">${escapeHtml(m.quoted_sender_name||"Replied Message")}</div>
+                        <div class="text-[10px] text-slate-300 line-clamp-2">${escapeHtml(m.quoted_text)}</div>
+                      </div>`
+                    :"";
+        
+                let media="";
+                if(m.media_path){
+                    if(m.media_type==="image"||m.mime_type?.startsWith("image/")){
+                        media=`<div class="mb-1.5 overflow-hidden rounded-lg border border-white/10">
+                            <img src="${escapeHtml(m.media_path)}" onerror="this.onclick='showToast();return;'" class="w-full max-h-60 object-cover cursor-pointer hover:scale-105 transition-transform" ${m.media_type==="sticker"?'style="max-width:120px;max-height:120px"':""} onclick="openMediaModal('${escapeHtml(m.media_path)}','image')">
                         </div>`;
-                    
-                    } else if (m.media_type === "video" || m.mime_type?.startsWith("video/")) {
-                        media = `<div class="mb-1.5 overflow-hidden rounded-lg border border-white/10 relative cursor-pointer group" onclick="openMediaModal('${escapeHtml(m.media_path)}','video','${escapeHtml(m.mime_type || "video/mp4")}')">
+                    }else if(m.media_type==="video"||m.mime_type?.startsWith("video/")){
+                        media=`<div class="mb-1.5 overflow-hidden rounded-lg border border-white/10 relative cursor-pointer group" onclick="openMediaModal('${escapeHtml(m.media_path)}','video','${escapeHtml(m.mime_type||"video/mp4")}')">
                             <video class="w-full max-h-60 bg-black/40 pointer-events-none"><source src="${escapeHtml(m.media_path)}"></video>
-                            <div class="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-all">
-                                <i class="fa-solid fa-play text-white text-2xl drop-shadow-md"></i>
-                            </div>
+                            <div class="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-all"><i class="fa-solid fa-play text-white text-2xl drop-shadow-md"></i></div>
                         </div>`;
-                    } else if (m.media_type === "document" || m.mime_type?.startsWith("application/")) {
-                        media = `<a href="${escapeHtml(m.media_path)}" target="_blank" download class="flex items-center gap-2.5 p-2.5 mb-1.5 bg-black/30 rounded-lg border border-slate-700/50 hover:border-anon-accent transition-colors">
+                    }else if(m.media_type==="document"||m.mime_type?.startsWith("application/")){
+                        media=`<a href="${escapeHtml(m.media_path)}" target="_blank" download class="flex items-center gap-2.5 p-2.5 mb-1.5 bg-black/30 rounded-lg border border-slate-700/50 hover:border-anon-accent transition-colors">
                             <i class="fa-solid fa-file-lines text-anon-accent text-lg"></i>
-                            <span class="text-xs text-slate-200 truncate flex-1 font-mono">${escapeHtml(m.file_name || "Document")}</span>
+                            <span class="text-xs text-slate-200 truncate flex-1 font-mono">${escapeHtml(m.file_name||"Document")}</span>
                             <i class="fa-solid fa-download text-xs text-slate-400"></i>
                         </a>`;
                     }
                 }
         
-                const list = reactionsMap.get(m.msg_id) || [];
-                const groups = {};
-                list.forEach(r => {
-                    if (!groups[r.reaction]) groups[r.reaction] = [];
+                let linkPreview="";
+                if(m.link_url){
+                    linkPreview=`<a href="${escapeAttr(m.link_url)}" target="_blank" rel="noopener noreferrer" class="block mb-2 overflow-hidden rounded-lg border border-slate-700/60 bg-black/20 hover:border-anon-accent/60 transition-colors">
+                        ${m.link_image?`<img src="${escapeAttr(m.link_image)}" onerror="this.style.display='none'" class="w-full  max-h-40 object-cover">`:""}
+                        <div class="p-2.5">
+                            ${m.link_site_name?`<div class="text-[9px] uppercase tracking-wider text-anon-accent font-bold mb-1">${escapeHtml(m.link_site_name)}</div>`:""}
+                            ${m.link_title?`<div class="text-xs font-bold text-slate-100 line-clamp-2">${escapeHtml(m.link_title)}</div>`:""}
+                            ${m.link_description?`<div class="text-[10px] text-slate-400 max-w-[250px] mt-1 line-clamp-2">${escapeHtml(m.link_description)}</div>`:""}
+                            <div class="text-[9px] text-anon-muted mt-1 truncate">${escapeHtml(m.link_url)}</div>
+                        </div>
+                    </a>`;
+                }
+        
+                const list=reactionsMap.get(m.msg_id)||[];
+                const groups={};
+                list.forEach(r=>{
+                    if(!groups[r.reaction])groups[r.reaction]=[];
                     groups[r.reaction].push(r);
                 });
         
-                const reactionHtml = Object.entries(groups).map(([emoji, rList]) => {
-                    const data = JSON.stringify(rList).replace(/\\/g, "\\\\").replace(/'/g, "&#39;");
-                    return `<button onclick='openReactionModal(${data}, ${JSON.stringify(emoji)})' class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/90 border border-anon-border text-xs hover:border-anon-accent transition-all">${escapeHtml(emoji)}${rList.length > 1 ? `<span class="text-[9px] text-anon-muted">${rList.length}</span>` : ""}</button>`;
+                const reactionHtml=Object.entries(groups).map(([emoji,rList])=>{
+                    const data=JSON.stringify(rList).replace(/\\/g,"\\\\").replace(/'/g,"&#39;");
+                    return `<button onclick='openReactionModal(${data},${JSON.stringify(emoji)})' class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/90 border border-anon-border text-xs hover:border-anon-accent transition-all">${escapeHtml(emoji)}${rList.length>1?`<span class="text-[9px] text-anon-muted">${rList.length}</span>`:""}</button>`;
                 }).join("");
-
-                const replyPayload = m.msg_id
-                    ? JSON.stringify({
-                        id: String(m.msg_id),
+        
+                const replyPayload=m.msg_id
+                    ?JSON.stringify({
+                        id:String(m.msg_id),
                         sender,
-                        text: m.text || (m.media_type ? `[${m.media_type}]` : "Message")
-                    }).replace(/"/g, "&quot;")
-                    : "";
-
-                const replyAction = replyPayload
-                    ? `<button type="button" onclick="selectReplyMessage(${replyPayload})" class="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-anon-accent" title="Reply">
-                        <i class="fa-solid fa-reply"></i>
-                       </button>`
-                    : "";
-                const messagePayload = escapeAttr(JSON.stringify({
-                    id: m.msg_id || m.id || "",
-                    msg_id: m.msg_id || "",
+                        text:m.text||(m.media_type?`[${m.media_type}]`:"Message")
+                    }).replace(/"/g,"&quot;")
+                    :"";
+        
+                const replyAction=replyPayload
+                    ?`<button type="button" onclick="selectReplyMessage(${replyPayload})" class="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-anon-accent" title="Reply"><i class="fa-solid fa-reply"></i></button>`
+                    :"";
+        
+                const messagePayload=escapeAttr(JSON.stringify({
+                    id:m.msg_id||m.id||"",
+                    msg_id:m.msg_id||"",
                     sender,
-                    sender_jid: m.sender || "",
-                    text: m.text || (m.media_type ? `[${m.media_type}]` : "Message"),
-                    from_me: self ? 1 : 0,
-                    created_at: m.created_at || "",
-                    jid: m.jid || "",
-                    conversation_key: m.conversation_key || activeThread?.conversation_key || "",
-                    quoted_text: m.quoted_text || ""
+                    sender_jid:m.sender||"",
+                    text:m.text||(m.media_type?`[${m.media_type}]`:"Message"),
+                    from_me:self?1:0,
+                    created_at:m.created_at||"",
+                    jid:m.jid||"",
+                    conversation_key:m.conversation_key||activeThread?.conversation_key||"",
+                    quoted_text:m.quoted_text||""
                 }));
         
-                return `
-                    <div class="flex flex-col w-full ${self ? "items-end" : "items-start"}" id="msg-${m.msg_id}">
-                        <div class="max-w-[85%] sm:max-w-[70%]">
-                            <div class="message-bubble group px-4 py-2.5 text-xs leading-relaxed shadow-md rounded-xl ${self ? "bg-anon-msgOut text-slate-100 rounded-tr-none border border-emerald-600/30" : "bg-anon-msgIn text-slate-100 rounded-tl-none border border-slate-700/40"}" data-swipe-reply="true" data-swipe-direction="${self ? "left" : "right"}" data-reply-payload="${escapeAttr(replyPayload)}" oncontextmenu='openMessageContextMenu(${messagePayload}, event); return false;'>
-                                ${!self ? `<div class="text-[10px] font-bold text-anon-accent mb-1 truncate">${escapeHtml(sender)}</div>` : ""}
-                                ${quoted}${media}
-                                ${ String(m.text).startsWith('[Video]') || String(m.text).startsWith('[Image]')  || String(m.text).startsWith('[Audio') ? "" : `<div class="break-words font-sans text-slate-100 privacy-sensitive">${renderSafeMessage(m.text)}</div>`}
-                                <div class="flex justify-end items-center gap-1.5 mt-1 text-[10px] text-slate-400 font-mono">
-                                    ${replyAction}
-                                    <span>${time}</span>
-                                    ${self ? `<i class="fa-solid fa-check-double text-anon-accent text-[10px]"></i>` : ""}
-                                </div>
+                return `<div class="flex flex-col w-full ${self?"items-end":"items-start"}" id="msg-${m.msg_id}">
+                    <div class="max-w-[85%] sm:max-w-[70%]">
+                        <div class="message-bubble group px-4 py-2.5 text-xs leading-relaxed shadow-md rounded-xl ${self?"bg-anon-msgOut text-slate-100 rounded-tr-none border border-emerald-600/30":"bg-anon-msgIn text-slate-100 rounded-tl-none border border-slate-700/40"}" data-swipe-reply="true" data-swipe-direction="${self?"left":"right"}" data-reply-payload="${escapeAttr(replyPayload)}" oncontextmenu='openMessageContextMenu(${messagePayload},event);return false;'>
+                            ${!self?`<div class="text-[10px] font-bold text-anon-accent mb-1 truncate">${escapeHtml(sender)}</div>`:""}
+                            ${quoted}${linkPreview}${media}
+                            <div class="break-words font-sans text-slate-100 privacy-sensitive">${renderSafeMessage(m.text)}</div>
+                            <div class="flex justify-end items-center gap-1.5 mt-1 text-[10px] text-slate-400 font-mono">
+                                ${replyAction}
+                                <span>${time}</span>
+                                ${self?`<i class="fa-solid fa-check-double text-anon-accent text-[10px]"></i>`:""}
                             </div>
-                            ${reactionHtml ? `<div class="flex flex-wrap gap-1 mt-1 ${self ? "justify-end mr-1" : "ml-1"}">${reactionHtml}</div>` : ""}
                         </div>
-                    </div>`;
+                        ${reactionHtml?`<div class="flex flex-wrap gap-1 mt-1 ${self?"justify-end mr-1":"ml-1"}">${reactionHtml}</div>`:""}
+                    </div>
+                </div>`;
             }).join("");
         }
-        
         function scrollToMsg(id){
             const msg=document.querySelector(`#${id}`)
             if(msg)
@@ -2090,6 +2191,17 @@
             const statuses = sorted.filter(m => m.jid === "status@broadcast");
             const normal = sorted.filter(m => m.jid !== "status@broadcast");
         
+            const isStatusContext = activeThread?.jid === "status@broadcast" 
+                || activeThread?.conversation_key === "status@broadcast"
+                || activeThread?.type === "status"
+                || statuses.length > 0;
+        
+            if (!isStatusContext) {
+                container.innerHTML = renderNormalMessages(normal);
+                setTimeout(() => container.scrollTop = container.scrollHeight, 50);
+                return;
+            }
+        
             const days = new Map();
             statuses.forEach(s => {
                 const d = new Date(Number(s.created_at) * 1000);
@@ -2128,11 +2240,11 @@
         
                 return `
                     <div
-                        onclick=' openStatusUserModal(statusPayloads["${statusId}"])'
+                        onclick='openStatusUserModal(statusPayloads["${statusId}"])'
                         class="flex flex-col justify-between p-2.5 rounded-lg bg-black/40 border border-slate-800 hover:border-anon-accent/50 cursor-pointer transition-all mb-2"
                     >
                         <div class="viewed-bars flex w-full gap-2">
-                            ${items.map(i => `<div class="viewed-bar" style="background:${isStatusViewed(i) ? "grey" : "#6fff6f"};padding:2px;border-radius:5px;margin-bottom:10px;flex-grow:1"></div>`).join("")}
+                            ${items.map(i => `<div class="viewed-bar bg-anon-accent" style="background:${isStatusViewed(i) ? "grey" : "#296a29000"};padding:2px;border-radius:5px;margin-bottom:10px;flex-grow:1"></div>`).join("")}
                         </div>
         
                         <div class="flex items-center justify-between no-wrap">
@@ -2436,7 +2548,7 @@
             content.innerHTML = `
                 <div id="statusMediaStage" class="relative w-full h-full flex flex-col items-center justify-center cursor-pointer">
                     ${body}
-                    ${m.media_path && hasCaption ? `<div class="absolute bottom-20 inset-x-4 z-20 bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 text-xs text-white text-center break-words">${parseFormattedText(m.text)}</div>` : ""}
+                    ${m.media_path && hasCaption ? `<div class="absolute bottom-10 inset-x-4 z-20 bg-black/60 backdrop-blur-sm p-2 rounded-sm border border-white/10 text-xs text-white text-center break-words truncate">${parseFormattedText(m.text)}</div>` : ""}
                 </div>`;
         
             el("statusMediaStage")?.addEventListener("click", () => {
@@ -2510,7 +2622,7 @@
         
             if (!m.read_at && !isStatusViewed(m)) {
                 markStatusAsViewed(m);
-                fetch(`/status/view/${m.id}/Bearer-${localStorage.getItem("adminAuth")}`)
+                fetch(`/status/view/${m.id}`)
                     .then(r => r.json())
                     .then(data => console.log(data))
                     .catch(err => console.log(err.message));
@@ -2540,6 +2652,7 @@
         async function sendStatusReply(event) {
             event?.preventDefault?.();
             const input = el("statusReplyInput");
+            
             const button = el("statusReplySendBtn");
             const status = el("statusReplyStatus");
             const current = currentStatusList[currentStatusIndex];
@@ -2555,14 +2668,22 @@
             try {
                 const response = await fetch("/api/status/reply", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
                     body: JSON.stringify({
                         session_id: current.session_id || "",
                         sender: current.sender || current.sender_jid || "",
                         text,
                         status_msg_id: current.msg_id || ""
                     })
-                });
+                })
+            
+                const data = await response.json()
+            
+                if (!response.ok) {
+                    throw new Error(data.error || "Failed to reply to status")
+                }
                 const result = await response.json().catch(() => ({}));
                 if (!response.ok) throw Error(result.error || "Status reply failed");
                 if (input) input.value = "";
