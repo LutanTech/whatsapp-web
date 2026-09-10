@@ -4,5 +4,5 @@ node_modules/
 package-lock.json
 public/media
 lib/uploads
-sessions/
+data/
 sessions/
