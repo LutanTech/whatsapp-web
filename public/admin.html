@@ -1077,7 +1077,7 @@
     </div>
 
     <div id="statusDayModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 backdrop-blur-md">
-        <div class="relative w-full max-w-md h-full max-h-[85vh] bg-slate-950 sm:rounded-2xl flex flex-col justify-between overflow-hidden border border-slate-800 shadow-2xl select-none">
+        <div class="relative w-full max-w-md h-full max-h-[100vh] bg-slate-950 sm:rounded-2xl flex flex-col justify-between overflow-hidden border border-slate-800 shadow-2xl select-none">
             
             <div class="absolute top-0 inset-x-0 z-20 p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent space-y-3">
                 <div id="statusProgressContainer" class="flex gap-1.5 w-full"></div>
@@ -1742,6 +1742,8 @@
             updateComposerState();
 
             conversation.jid == "status@broadcast" ?  el('msg-footer')?.classList.add('hidden') :  el('msg-footer')?.classList.remove('hidden')
+
+            conversation.jid == "status@broadcast"  && window.innerWidth < 768 ?  el('mobileBottomNav')?.classList.add('hidden') :  el('mobileBottomNav')?.classList.remove('hidden')
 
 
         
@@ -2422,20 +2424,37 @@
             updateStatusPauseButton();
         }
 
+
         function closeStatusDayModal() {
             clearTimeout(statusTimer);
             statusPaused = false;
             statusRemainingMs = 0;
-            const modal = el("statusDayModal");
-            if (modal) {
-                modal.classList.add("hidden");
-                modal.classList.remove("flex");
+            const m = el("statusDayModal");
+            console.log('closing.......................')
+            el('mobileBottomNav')?.classList.remove('hidden')
+            el('mobileBottomNav')?.classList.add('flex')
+           if(el('mobileBottomNav')) el('mobileBottomNav').style.display = 'flex'
+
+
+            const vid = m?.querySelector("video");
+            if (vid) vid.pause();
+            if (m) {
+                m.classList.add("hidden");
+                m.classList.remove("flex");
             }
         }
+        
 
         function openStatusUserModal(statuses) {
             if (!statuses?.length) return;
             currentStatusList = statuses.sort((a, b) => Number(a.created_at) - Number(b.created_at));
+            console.log('opening.......................')
+            console.log(el('mobileBottomNav').style.display)
+
+            el('mobileBottomNav')?.classList.remove('flex')
+            el('mobileBottomNav')?.classList.add('hidden')
+           document.getElementById('mobileBottomNav').setAttribute("style", "display:none !important")
+            console.log(el('mobileBottomNav').style.display)
             
             const firstUnviewedIndex = currentStatusList.findIndex(s => !isStatusViewed(s));
             currentStatusIndex = firstUnviewedIndex !== -1 ? firstUnviewedIndex : 0;
@@ -2548,7 +2567,7 @@
             content.innerHTML = `
                 <div id="statusMediaStage" class="relative w-full h-full flex flex-col items-center justify-center cursor-pointer">
                     ${body}
-                    ${m.media_path && hasCaption ? `<div class="absolute bottom-10 inset-x-4 z-20 bg-black/60 backdrop-blur-sm p-2 rounded-sm border border-white/10 text-xs text-white text-center break-words truncate">${parseFormattedText(m.text)}</div>` : ""}
+                    ${m.media_path && hasCaption ? `<div class="absolute bottom-12 inset-x-4 z-20 bg-black/60 backdrop-blur-sm p-2 rounded-sm border border-white/10 text-xs text-white text-center break-words truncate">${parseFormattedText(m.text)}</div>` : ""}
                 </div>`;
         
             el("statusMediaStage")?.addEventListener("click", () => {
@@ -2739,19 +2758,7 @@
             }
         }
         
-        function closeStatusDayModal() {
-            clearTimeout(statusTimer);
-            statusPaused = false;
-            statusRemainingMs = 0;
-            const m = el("statusDayModal");
-            const vid = m?.querySelector("video");
-            if (vid) vid.pause();
-            if (m) {
-                m.classList.add("hidden");
-                m.classList.remove("flex");
-            }
-        }
-        
+
         function openMediaModal(src, type, mimeType = "video/mp4") {
             let modal = el("global-media-modal");
             if (!modal) {
