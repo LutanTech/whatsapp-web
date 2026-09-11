@@ -279,7 +279,7 @@
             }
             #sidebar,
             #mainChatArea {
-                height: calc(100dvh - 4rem) !important;
+                height: inherit;
                 min-height: 0;
             }
             #sidebar > nav {
@@ -506,15 +506,18 @@
                 </div>
                 
                 <div class="flex items-center gap-1">
-                    <button onclick="openModal('contactsModal'); getContacts(0)" class="w-9 h-9 rounded-lg text-anon-muted hover:text-anon-text hover:bg-anon-panel/80 flex items-center justify-center transition-all" title="Contacts">
+                    <button onclick=" openModal('newChatModal')" class="w-9 h-9 rounded-lg text-anon-muted hover:text-anon-text hover:bg-anon-panel/80 flex items-center justify-center transition-all" title="New Chat">
+                        <i class="fa-solid fa-user-plus text-sm"></i>
+                    </button>
+                    <button onclick=" getContacts(0);openModal('contactsModal')" class="w-9 h-9 rounded-lg text-anon-muted hover:text-anon-text hover:bg-anon-panel/80 flex items-center justify-center transition-all" title="Contacts">
                         <i class="fa-solid fa-users text-sm"></i>
                     </button>
                     
-                    <button onclick="fetchConversations()" class="w-9 h-9 rounded-lg text-anon-muted hover:text-anon-text hover:bg-anon-panel/80 flex items-center justify-center transition-all" title="Refresh Feed">
+                    <button onclick="fetchConversations(); reloadServer(this)" class="w-9 h-9 rounded-lg text-anon-muted hover:text-anon-text hover:bg-anon-panel/80 flex items-center justify-center transition-all" title="Refresh Feed">
                         <i class="fa-solid fa-arrows-rotate text-sm"></i>
                     </button>
                     <button onclick="openModal('whatsappSettingsModal')" class="w-9 h-9 rounded-lg text-anon-muted hover:text-anon-text hover:bg-anon-panel/80 flex items-center justify-center transition-all" title="WhatsApp Settings">
-                        <i class="fa-solid fa-sliders text-sm"></i>
+                        <i class="fa-solid fa-cog text-sm"></i>
                     </button>
                 </div>
             </header>
@@ -579,9 +582,9 @@
                         <i class="fa-solid fa-comments text-4xl"></i>
                     </div>
                 </div>
-                <h2 class="text-2xl font-bold text-anon-text tracking-tight mb-2">No Active Thread Selected</h2>
+                <h2 class="text-2xl font-bold text-anon-text tracking-tight mb-2">No Active Chat</h2>
                 <p class="text-anon-muted text-xs max-w-md leading-relaxed">
-                    Select a contact or group from the list to view real-time chat history, inspect attachments, status broadcasts, or manage session streams.
+                    Select a contact or group from the list to view real-time chat history, inspect attachments, status broadcasts or manage session streams.
                 </p>
                 <div class="mt-6 flex items-center gap-2 text-anon-accent text-xs bg-anon-panel/80 px-4 py-2 rounded-full border border-anon-border shadow-inner font-mono">
                     <i class="fa-solid fa-lock text-[11px]"></i> Session Monitor Ready
@@ -711,7 +714,16 @@
         </main>
         </div>
 
+    
+
     <nav id="mobileBottomNav" class="fixed bottom-0 inset-x-0 z-[75] hidden h-16 items-center justify-around border-t border-anon-border bg-slate-950/95 px-2 backdrop-blur-md">
+
+        <div class="newChat absolute bottom-24 p-3 rounded-full  z-[75] hover:bg-anon-muted bg-anon-accent right-5" style="box-shadow: 0px 5px 5px black;">
+            <button onclick="getContacts(0);openModal('contactsModal')" class="flex h-full flex-1 flex-col items-center justify-center text-anon-text hover:text-anon-accent relative" title="New Chat">
+                <i class="fa-solid fa-message text-base text-xl"></i> <span class="absolute bottom-0 right-0 text-anon-text" style="text-shadow:0px -1px 0px #000000">+</span>
+            </button>
+        </div>
+
         <button onclick="setFilter('all'); closeMobileChat()" class="nav-tab flex h-full flex-1 flex-col items-center justify-center py-1 text-anon-muted hover:text-anon-text" title="Chats">
             <i class="fa-solid fa-comments mb-1 text-base"></i>
             <span class="text-[10px] font-semibold">Chats</span>
@@ -859,6 +871,35 @@
         </div>
     </div>
 
+    <div id="newChatModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4 backdrop-blur-md transition-all duration-200">
+        <div class="glass-modal max-w-xl w-full rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-anon-border animate-pop-in">
+            <div class="p-5 bg-anon-sidebar border-b border-anon-border flex justify-between items-center">
+                <h5 class="font-bold text-sm text-anon-text flex items-center gap-2">
+                    <i class="fas fa-users text-anon-accent"></i>Start New Chat
+                </h5>
+                <div class="flex gap-2">
+
+                <button onclick="closeModal('newChatModal');getContacts(0);openModal('contactsModal')" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors" title="Import Contacts">
+                        <i class="fa-solid fa-users"></i>
+                </button>
+                <button onclick="closeModal('newChatModal')" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors" title="Close">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+            
+            </div>
+            
+            <div class="p-6 space-y-5 overflow-y-auto max-h-[80vh] scrollbar-thin">
+
+                <div class="relative flex items-center bg-anon-panel/80 rounded-lg px-3.5 py-2.5 border border-anon-border/80 focus-within:border-anon-accent/50 focus-within:ring-1 focus-within:ring-anon-accent/50 transition-all">
+                    <i class="fa-solid fa-phone text-anon-muted text-xs mr-3"></i>
+                    <input id="phone"  placeholder="Enter phone number" class="w-full bg-transparent text-xs outline-none text-anon-text placeholder-anon-muted/60">
+                </div>
+
+             </div>
+        </div>
+    </div>
+
     <div id="importModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4 backdrop-blur-md">
         <div class="glass-modal w-full max-w-lg max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-anon-border">
     
@@ -875,7 +916,7 @@
                     <button onclick="importContacts()" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-accent flex items-center justify-center" title="Import Contacts">
                         <i class="fa-solid fa-cloud-arrow-down text-xs"></i>
                     </button>
-                    <button onclick="reloadContacts()" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center" title="Refresh Contacts">
+                    <button onclick="getContacts(0)" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center" title="Refresh Contacts">
                         <i class="fa-solid fa-arrows-rotate text-xs"></i>
                     </button>
                     <button onclick="closeModal('importModal')" class="w-8 h-8 rounded-lg hover:bg-red-500/10 text-anon-muted hover:text-red-400 flex items-center justify-center" title="Close">
@@ -1187,7 +1228,7 @@
 
         function getConversationTitle(c) {
             if (!c) return "Unknown Contact";
-            if (c.jid === "status@broadcast") return "WhatsApp Status Broadcasts";
+            if (c.jid === "status@broadcast") return "Status";
             if (c.jid?.endsWith("@newsletter")) return c.channel_name || c.subject || c.push_name || "WhatsApp Channel";
             if (c.jid?.endsWith("@g.us")) return c.group_name || c.chat_name || c.jid;
             return c.chat_name || c.jid || "Unknown User";
@@ -1227,6 +1268,23 @@
             });
         }
 
+        function reloadServer(btn){
+            const i = btn.querySelector('i')
+            i.classList.add('fa-spin')
+            
+            fetch('api/restart', {
+                method: 'POST'
+            })
+            .then(r=>r.json())
+            .then(data=>{
+                alert(data)
+            })
+            setTimeout(() =>{
+            i.classList.remove('fa-spin')
+            }, 4000)
+
+        }
+        
         async function installPWA() {
             if (!deferredInstallPrompt) {
                 showToast("Use your browser menu to install this app", "info");
@@ -1743,8 +1801,8 @@
 
             conversation.jid == "status@broadcast" ?  el('msg-footer')?.classList.add('hidden') :  el('msg-footer')?.classList.remove('hidden')
 
-            conversation.jid == "status@broadcast"  && window.innerWidth < 768 ?  el('mobileBottomNav')?.classList.add('hidden') :  el('mobileBottomNav')?.classList.remove('hidden')
-
+            if(window.innerWidth < 768 ) { hideNavs(); console.log('hiding....')}  else { showNavs(); console.log('showing.......')
+        }
 
         
             if (window.innerWidth < 768) {
@@ -1904,8 +1962,24 @@
                 renderChatThread(mockMsgs);
             }
         }
+
+        function hideNavs(){
+            el('mobileBottomNav')?.classList.add('hidden');
+            el('mobileBottomNav')?.classList.remove('fixed')
+            document.getElementById('mobileBottomNav').setAttribute("style", "display:none !important" )
+
+        }
+        function showNavs(){
+            el('mobileBottomNav')?.classList.remove('hidden');
+            el('mobileBottomNav')?.classList.add('fixed')
+                
+           window.innerWidth < 768 ? document.getElementById('mobileBottomNav').setAttribute("style", "display:flex !important" ) : ''
+
+        }
+
         
         function closeMobileChat() {
+            showNavs()
             activeThread = null;
             el("sidebar").classList.remove("hidden");
             el("mainChatArea").classList.add("hidden");
@@ -2116,7 +2190,7 @@
                         </div>
 
                         <div
-                            onclick="startChatWithContact('${escapeAttr(c.phone || '')}')"
+                            onclick="closeModal('contactsModal');startChatWithContact('${escapeAttr(c.phone || '')}')"
                             class="cursor-pointer hover:text-anon-accent border-anon-accent hover:outline hover:outline-[#10b981]"
                             style="padding:5px 10px;border-radius:20%;"
                         >
@@ -2424,7 +2498,6 @@
             updateStatusPauseButton();
         }
 
-
         function closeStatusDayModal() {
             clearTimeout(statusTimer);
             statusPaused = false;
@@ -2444,7 +2517,6 @@
             }
         }
         
-
         function openStatusUserModal(statuses) {
             if (!statuses?.length) return;
             currentStatusList = statuses.sort((a, b) => Number(a.created_at) - Number(b.created_at));
@@ -2488,6 +2560,9 @@
             const m = currentStatusList[currentStatusIndex];
         
             if (!m) return;
+            if(m.read_at){
+                markStatusAsViewed(m)
+            }
         
             const statusReplyInput = el("statusReplyInput");
             if (statusReplyInput) {
@@ -2758,7 +2833,6 @@
             }
         }
         
-
         function openMediaModal(src, type, mimeType = "video/mp4") {
             let modal = el("global-media-modal");
             if (!modal) {
@@ -3808,8 +3882,7 @@
         }
 
         window.onload = () => checkAuth();
-        </script>
-
+    </script>
 
         <script>
             const fileInput = document.getElementById("vcfFile")
@@ -3906,6 +3979,6 @@
                 }
             }
             
-            </script>
+        </script>
 </body>
 </html>

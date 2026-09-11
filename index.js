@@ -1263,6 +1263,13 @@ io.on("connection", async socket => {
     } catch {}
 })
 
+app.post("/api/restart",async(req,res)=>{
+    res.json({success:true,message:"Restarting..."});
+    setTimeout(()=>{
+        process.exit(0);
+    },500);
+});
+
 setInterval( async ()=>{
     io.emit("sessions", getSessions())
     await updateNames()
