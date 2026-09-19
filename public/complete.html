@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setting Up</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-white flex items-center justify-center px-6">
+
+    <div class="w-full max-w-md text-center">
+
+        <div class="w-16 h-16 mx-auto mb-6 rounded-full border-4 border-slate-700 border-t-fuchsia-500 animate-spin"></div>
+
+        <h1 class="text-xl font-semibold mb-2">
+            Pairing successful
+        </h1>
+
+        <p id="status" class="text-slate-400 text-sm mb-6">
+            Preparing your messages...
+        </p>
+
+        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div
+                id="progress"
+                class="h-full bg-fuchsia-500 rounded-full transition-all duration-300"
+                style="width: 0%"
+            ></div>
+        </div>
+
+        <div class="flex justify-between text-xs text-slate-500 mt-2">
+            <span id="downloaded">0 messages</span>
+            <span id="percent">Syncing...</span>
+        </div>
+
+    </div>
+
+    <script>
+        const socket = io()
+
+        let sessionId = null
+
+        async function init() {
+            try {
+                const res = await fetch("/api/pair/session")
+
+                if (!res.ok) {
+                    window.location.href = "/pair"
+                    return
+                }
+
+                const data = await res.json()
+
+                sessionId = data.session_id
+
+                socket.emit(
+                    "session",
+                    sessionId
+                )
+            } catch {
+                document.getElementById("status").textContent =
+                    "Unable to connect to your session"
+            }
+        }
+
+        socket.on("history-progress", data => {
+            if (data.session_id !== sessionId)
+                return
+
+            const downloaded =
+                Number(data.downloaded || 0)
+
+            const total =
+                Number(data.total || 0)
+
+            document.getElementById("downloaded").textContent =
+                `${downloaded.toLocaleString()} messages`
+
+            if (total > 0) {
+                const percent = Math.min(
+                    100,
+                    Math.round(
+                        downloaded / total * 100
+                    )
+                )
+
+                document.getElementById("percent").textContent =
+                    `${percent}%`
+
+                document.getElementById("progress").style.width =
+                    `${percent}%`
+            } else {
+                document.getElementById("percent").textContent =
+                    "Syncing..."
+
+                document.getElementById("progress").style.width =
+                    "60%"
+            }
+
+            document.getElementById("status").textContent =
+                "Downloading your messages..."
+        })
+
+        socket.on("history-complete", data => {
+            if (data.session_id !== sessionId)
+                return
+
+            document.getElementById("status").textContent =
+                "Messages downloaded successfully"
+
+            document.getElementById("downloaded").textContent =
+                `${Number(data.downloaded || 0).toLocaleString()} messages`
+
+            document.getElementById("progress").style.width =
+                "100%"
+
+            document.getElementById("percent").textContent =
+                "100%"
+
+            setTimeout(() => {
+                window.location.href = "/"
+            }, 800)
+        })
+
+        init()
+    </script>
+
+</body>
+</html>
