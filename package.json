@@ -17,6 +17,7 @@
         "cookie-parser": "^1.4.7",
         "dotenv": "^17.2.1",
         "express": "^5.1.0",
+        "gifted-btns": "^1.0.2",
         "jsonwebtoken": "^9.0.3",
         "multer": "^2.3.0",
         "pino": "^9.9.0",

@@ -5,6 +5,7 @@ package-lock.json
 public/media
 lib/uploads
 data/
-data/bot.db
+bot.db
 *.db
 sessions/
+data/bot.db

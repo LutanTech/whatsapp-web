@@ -6,12 +6,12 @@ const { Server } = require("socket.io")
 const path = require("path")
 const sharp = require("sharp")
 const cookieParser = require("cookie-parser")
-
+const { generateWAMessageFromContent, proto }=require("@whiskeysockets/baileys")
 const { pair, logout, restoreSessions, getSessions, getSession,createSession, getPresence, isOnlinePresence, requestPresence, setSessionEventEmitter, createQRSession, setJwt } = require("./lib/sessions")
 const { refreshConversationAvatar } = require("./lib/avatar-refresh")
 const { all, run, get } = require("./lib/database")
 const { recordMessage, conversationKey, setMessageEmitter } = require("./lib/messages")
-const {  getSavedContactName, clean, unsavedName, getGroupMetadata } = require("./lib/bot")
+const {  getSavedContactName, clean, unsavedName, getGroupMetadata, setPendingIds } = require("./lib/bot")
 const { getFullProfilePictureUrl, clearAvatarCache } = require("./lib/avatars")
 const fs = require("fs")
 const multer = require("multer")
@@ -20,7 +20,7 @@ let activeQRSession = null
 const app = express()
 const server = http.createServer(app)
 const io = new Server(server)
-
+const pendingClientIds=new Map()
 
 
 app.use(express.json({ limit: "25mb" }))
@@ -36,42 +36,69 @@ console.log(process.env.ADMIN_EMAIL)
 console.log(process.env.ADMIN_PASS)
 
 
-
 async function getCookieSession(req){
+    const cookieValue=req.cookies?.adminSession
 
-    const sessionId=String(req.cookies.adminSession||"").trim()
 
+    const sessionId=String(cookieValue||"").trim()
 
     if(!sessionId){
+        console.log("[COOKIE SESSION] No session ID")
         return null
     }
 
     const session=getSession(sessionId)
 
-    if(!session?.sock){
+    if(!session){
+        console.log("[COOKIE SESSION] Session not found in memory")
         return null
     }
 
+    if(!session.sock){
+        console.log("[COOKIE SESSION] Session exists but socket is missing",{
+            sessionId,
+            phone:session.phone,
+            status:session.status
+        })
+        return null
+    }
+
+    console.log(
+        "[REJECT]",
+        typeof session.sock.rejectCall
+    )
+    console.log(
+        "[CALL METHODS]",
+        Object.keys(session.sock).filter(x=>x.toLowerCase().includes("call"))
+    )
+
+    console.log("[COOKIE SESSION] Session accepted",{
+        sessionId,
+        phone:session.phone,
+        status:session.status
+    })
+
     return session
 }
+
 app.get("/loading", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "complete.html"))
 })
 
-async function requireSession(req, res, next) {
+async function requireSession(req,res,next){
+    const session=await getCookieSession(req)
+    const isSend=String(req.route.path).includes("send")
 
-    const session = await getCookieSession(req)
-
-    if (!session)
+    if(!session&&!isSend)
         return res.status(401).json({
-            error: "Session unavailable"
+            error:"Session unavailable"
         })
 
-    req.session = session
-    req.session_id = session.id
+    req.session=session
+    req.session_id=session?.id||req.cookies.adminSession
+
     next()
 }
-
 
 const upload = multer({
     dest: "uploads/",
@@ -338,57 +365,20 @@ app.get("/pair", async (req, res) => {
 
 })
 
-app.get("/", async (req, res) => {
+app.get("/",async(req,res)=>{
     await updateNames()
 
-    if (!req.cookies.paired_token || !req.cookies.adminSession) {
-        res.cookie("adminSession", 0, {
-            maxAge: -60000
-        })
-
-        res.cookie("paired_token", 0, {
-            maxAge: -60000
-        })
-
-        res.cookie("admin_token", 0, {
-            maxAge: -60000
-        })
-
+    if(!req.cookies.paired_token||!req.cookies.adminSession){
+        res.cookie("adminSession",0,{maxAge:-60000})
+        res.cookie("paired_token",0,{maxAge:-60000})
+        res.cookie("admin_token",0,{maxAge:-60000})
         return res.redirect("/pair")
     }
 
-    const sessionId = String(
-        req.cookies.adminSession || ""
-    ).trim()
-
-    let session = getSession(sessionId)
-
-    if (!session) {
-        const rows = await all(`
-            SELECT id, phone
-            FROM sessions
-            WHERE id = ? AND status != 'logged_out'
-            LIMIT 1
-        `, [sessionId])
-
-        if (rows[0]) {
-            session = await createSession(
-                rows[0].id,
-                rows[0].phone
-            )
-        }
-    }
-
-    if (!session)
-        return res.sendFile(
-            path.join(__dirname, "public", "admin.html")
-        )
-
     return res.sendFile(
-        path.join(__dirname, "public", "admin.html")
+        path.join(__dirname,"public","admin.html")
     )
 })
-
 app.post("/api/pair/complete", async (req, res) => {
     try {
         const token = String(req.cookies.paired_token || "").trim()
@@ -794,7 +784,7 @@ app.get("/api/conversations", requireSession, async (req, res) => {
             })
 
         const page = Math.max(1, parseInt(req.query.page, 10) || 1)
-        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20))
+        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10))
         const offset = (page - 1) * limit
 
         const countRows = await all(`
@@ -993,6 +983,8 @@ app.get("/api/conversations", requireSession, async (req, res) => {
             })
         )
 
+
+
         res.json({
             conversations,
             pagination: {
@@ -1011,9 +1003,8 @@ app.get("/api/conversations", requireSession, async (req, res) => {
     }
 })
 
-app.post("/api/conversations/:key/read",requireSession,  async (req, res) => {
+async function readChat(key) {
     try {
-        const key = decodeURIComponent(req.params.key)
         await run(`
             UPDATE messages
             SET read_at = CAST(strftime('%s', 'now') AS INTEGER)
@@ -1021,11 +1012,14 @@ app.post("/api/conversations/:key/read",requireSession,  async (req, res) => {
               AND from_me = 0
               AND jid != 'status@broadcast'
         `, [key])
-        res.json({ success: true })
+
+
+        return  true 
     } catch (err) {
-        res.status(500).json({ error: err.message })
+        
+        return false
     }
-})
+}
 
 app.post("/api/admin/switch-account", async (req, res) => {
     try {
@@ -1091,6 +1085,7 @@ app.get("/api/conversations/:key", requireSession, async (req, res) => {
     try {
         const key = decodeURIComponent(req.params.key)
         const isStatus = key.endsWith(":status:status@broadcast")
+        console.log(key)
         const limit = Math.min(Math.max(Number(req.query.limit) || 50, 10), 100)
         const before = Number(req.query.before || 0)
         const date = String(req.query.date || "").trim()
@@ -1182,6 +1177,7 @@ app.get("/api/conversations/:key", requireSession, async (req, res) => {
                 if (isStatus)
                     message.media_path = `/api/status/${row.id}`
 
+                readChat(key)
                 return message
             }))
         }
@@ -1261,6 +1257,7 @@ app.get("/api/status/:id",requireSession, async(req,res)=>{
 
         if(req.query.preview==="0"){
             if(row.mime_type)res.type(row.mime_type)
+            await viewStatus(id)
             return res.sendFile(path.resolve(filePath))
         }
 
@@ -1507,19 +1504,52 @@ app.post("/api/status/reply",requireSession,  async (req, res) => {
     }
 })
 
-app.post("/api/messages/send", requireSession, async(req,res)=>{
+
+app.post("/api/messages/send",requireSession, async(req,res)=>{
+
     try{
+
         const body=req.body||{}
-        const conversationKey=String(body.conversation_key||"").trim()
-        const text=typeof body.text==="string"?body.text.trim():""
-        const media=body.media&&typeof body.media==="object"?body.media:null
 
-        if(!conversationKey)return res.status(400).json({error:"conversation_key is required"})
+        const conversationKey=String(
+            body.conversation_key||""
+        ).trim()
 
-        const target=await resolveConversationTarget(conversationKey)
-        if(!target)return res.status(404).json({error:"Conversation session is not available"})
-        if(target.jid==="status@broadcast")return res.status(400).json({error:"Status broadcasts are read-only"})
-        if(!text&&!media)return res.status(400).json({error:"Message text or media is required"})
+        const text=
+            typeof body.text==="string"
+                ? body.text.trim()
+                : ""
+
+        const media=
+            body.media&&typeof body.media==="object"
+                ? body.media
+                : null
+
+
+        if(!conversationKey)
+            return res.status(400).json({
+                error:"conversation_key is required"
+            })
+
+        const target=await resolveConversationTarget(
+            conversationKey
+        )
+
+
+        if(!target)
+            return res.status(404).json({
+                error:"Conversation session is not available"
+            })
+
+        if(target.jid==="status@broadcast")
+            return res.status(400).json({
+                error:"Status broadcasts are read-only"
+            })
+
+        if(!text&&!media)
+            return res.status(400).json({
+                error:"Message text or media is required"
+            })
 
         const replyMessage=await getReplyMessage(
             conversationKey,
@@ -1530,87 +1560,313 @@ app.post("/api/messages/send", requireSession, async(req,res)=>{
         let outgoing
 
         if(media){
-            const mediaType=String(media.type||"").toLowerCase()
+
+            const mediaType=String(
+                media.type||""
+            ).toLowerCase()
+
 
             if(mediaType==="sticker"){
-                const fileName=path.basename(String(media.fileName||""))
-                
-                if(!fileName)return res.status(400).json({error:"Sticker file is missing"})
 
-                const stickerPath=path.join(__dirname,"lib","uploads","stickers",fileName)
+                const fileName=path.basename(
+                    String(media.fileName||"")
+                )
+
+                if(!fileName)
+                    return res.status(400).json({
+                        error:"Sticker file is missing"
+                    })
+
+                const stickerPath=path.join(
+                    __dirname,
+                    "lib",
+                    "uploads",
+                    "stickers",
+                    fileName
+                )
 
                 if(!fs.existsSync(stickerPath))
-                    return res.status(404).json({error:"Sticker not found"})
+                    return res.status(404).json({
+                        error:"Sticker not found"
+                    })
 
-                outgoing={sticker:fs.readFileSync(stickerPath)}
+                outgoing={
+                    sticker:fs.readFileSync(stickerPath)
+                }
+
             }else{
-                const allowed=new Set(["image","video","audio","document"])
+
+                const allowed=new Set([
+                    "image",
+                    "video",
+                    "audio",
+                    "document"
+                ])
+
                 if(!allowed.has(mediaType))
-                    return res.status(400).json({error:"Unsupported media type"})
+                    return res.status(400).json({
+                        error:"Unsupported media type"
+                    })
 
-                if(typeof media.base64!=="string"||!media.base64)
-                    return res.status(400).json({error:"Media data is missing"})
+                if(
+                    typeof media.base64!=="string"||
+                    !media.base64
+                )
+                    return res.status(400).json({
+                        error:"Media data is missing"
+                    })
 
-                const base64=media.base64.replace(/^data:[^;]+;base64,/,"")
-                const buffer=Buffer.from(base64,"base64")
-                if(!buffer.length)return res.status(400).json({error:"Media data is empty"})
+                const base64=media.base64.replace(
+                    /^data:[^;]+;base64,/,
+                    ""
+                )
+
+                const buffer=Buffer.from(
+                    base64,
+                    "base64"
+                )
+
+
+                if(!buffer.length)
+                    return res.status(400).json({
+                        error:"Media data is empty"
+                    })
 
                 const caption=text||undefined
 
                 if(mediaType==="image"){
-                    outgoing={image:buffer,caption,mimetype:media.mimetype||undefined}
+
+                    outgoing={
+                        image:buffer,
+                        caption,
+                        mimetype:media.mimetype||undefined
+                    }
+
                 }else if(mediaType==="video"){
-                    outgoing={video:buffer,caption,mimetype:media.mimetype||undefined}
+
+                    outgoing={
+                        video:buffer,
+                        caption,
+                        mimetype:media.mimetype||undefined
+                    }
+
                 }else if(mediaType==="audio"){
+
                     outgoing={
                         audio:buffer,
-                        mimetype:media.mimetype||"audio/webm; codecs=opus",
+                        mimetype:
+                            media.mimetype||
+                            "audio/webm; codecs=opus",
                         ptt:Boolean(media.ptt)
                     }
+
                 }else{
+
                     outgoing={
                         document:buffer,
-                        mimetype:media.mimetype||"application/octet-stream",
-                        fileName:media.fileName||"attachment"
+                        mimetype:
+                            media.mimetype||
+                            "application/octet-stream",
+                        fileName:
+                            media.fileName||
+                            "attachment"
                     }
-                    if(caption)outgoing.caption=caption
+
+                    if(caption)
+                        outgoing.caption=caption
+
                 }
+
             }
+
         }else{
-            outgoing={text}
+
+            outgoing={
+                text
+            }
+
         }
 
-        const sendOptions=replyMessage?{quoted:replyMessage}:undefined
+
+
+        const sendOptions=replyMessage
+            ? {
+                quoted:replyMessage
+            }
+            : undefined
+
+            console.log(
+                target.jid,
+                outgoing,
+                sendOptions
+            )
 
         const sent=await target.session.sock.sendMessage(
             target.jid,
             outgoing,
             sendOptions
         )
+        if(body.client_id&&sent?.key?.id){
+            pendingClientIds.set(
+                `${target.row.session_id}:${sent.key.id}`,
+                body.client_id
+            )
+        }
+
+        setPendingIds(pendingClientIds)
 
         const sentType=media?.type||"text"
 
-        const saved=await get(
-            `SELECT *
-             FROM messages
-             WHERE session_id=?
-             AND msg_id=?
-             LIMIT 1`,
-            [target.row.session_id,sent?.key?.id]
-        )
-        
-        if(saved && io)
-            io.emit("message",saved)
 
         res.json({
             success:true,
             type:sentType,
+            client_id:body.client_id||null,
             key:sent?.key||null,
             conversation_key:conversationKey,
             reply_to:body.reply_to||null
         })
+
     }catch(err){
-        console.error("[ADMIN SEND] Error:",err.message, err)
+
+        console.error(
+            "[ADMIN SEND] ERROR",
+            err.message,
+            err
+        )
+
+        res.status(500).json({
+            error:err.message
+        })
+
+    }
+
+})
+
+
+app.post("/api/calls/reject",requireSession,async(req,res)=>{
+    try{
+        const{call_id,call_from}=req.body||{}
+
+        if(!call_id||!call_from){
+            return res.status(400).json({
+                error:"call_id and call_from are required"
+            })
+        }
+
+        const session=getSession(req.sessionId)
+
+        if(!session?.sock){
+            return res.status(404).json({
+                error:"Session is not available"
+            })
+        }
+
+        await session.sock.rejectCall(
+            call_id,
+            call_from
+        )
+
+        res.json({
+            success:true
+        })
+    }catch(err){
+        console.error("[CALL REJECT]",err.message)
+        res.status(500).json({
+            error:err.message
+        })
+    }
+})
+
+const {
+    getContentType
+}=require("@whiskeysockets/baileys")
+
+const {getButtonArgs}=require("gifted-btns")
+
+app.post("/api/messages/send-link",requireSession,async(req,res)=>{
+    try{
+        const {
+            conversation_key,
+            url,
+            display_text="Open Link",
+            text="Open the link below:"
+        }=req.body||{}
+
+        console.log("[SEND LINK]",{
+            conversation_key,
+            url,
+            display_text
+        })
+
+        if(!conversation_key||!url)
+            return res.status(400).json({
+                error:"conversation_key and url are required"
+            })
+
+        const target=await resolveConversationTarget(conversation_key)
+
+        if(!target?.session?.sock)
+            return res.status(503).json({error:"Session unavailable"})
+
+        if(target.jid==="status@broadcast")
+            return res.status(400).json({
+                error:"Status broadcasts are read-only"
+            })
+
+        const content={
+            interactiveMessage:{
+                body:{text},
+                nativeFlowMessage:{
+                    buttons:[
+                        {
+                            name:"cta_url",
+                            buttonParamsJson:JSON.stringify({
+                                display_text,
+                                url,
+                                merchant_url:url
+                            })
+                        }
+                    ]
+                }
+            }
+        }
+
+        const msg=generateWAMessageFromContent(
+            target.jid,
+            content,
+            {
+                userJid:target.session.sock.user?.id,
+                timestamp:new Date()
+            }
+        )
+
+        const node=getButtonArgs(content)
+
+        console.log("[SEND LINK] Node",JSON.stringify(node,null,2))
+
+        await target.session.sock.relayMessage(
+            target.jid,
+            msg.message,
+            {
+                messageId:msg.key.id,
+                additionalNodes:[node]
+            }
+        )
+
+        console.log("[SEND LINK] Sent",{
+            id:msg.key.id,
+            jid:target.jid,
+            url
+        })
+
+        res.json({
+            success:true,
+            key:msg.key,
+            conversation_key
+        })
+    }catch(err){
+        console.error("[SEND LINK] Error:",err)
         res.status(500).json({error:err.message})
     }
 })
@@ -1715,8 +1971,8 @@ app.get("/api/contacts/all",requireSession, async(req,res)=>{
     }
 })
 
-app.get('/status/view/:id/:auth',requireSession,  async(req, res) => {
-    const id = req.params.id
+async function viewStatus(id){
+    console.log('viewing', id)
     const timestamp=new Date().toISOString()
 
     const rows = await all(`
@@ -1729,12 +1985,107 @@ app.get('/status/view/:id/:auth',requireSession,  async(req, res) => {
 
     const row = rows[0]
     if(!row){
-        return res.status(404).json({success:false, 'error':'Status not found'})
+    console.log('not viewed')
+
+        return false
 
     }
     await run(`UPDATE messages SET read_at=? WHERE id=?`,[timestamp,id])
-    return res.status(200).json({success:true, 'message':'Viewed'})
+    console.log('viewed')
+    return true
 
+}
+
+app.post("/api/status/post",requireSession,async(req,res)=>{
+    try{
+        const session=req.session
+
+        if(!session?.sock){
+            return res.status(503).json({error:"WhatsApp session is not connected"})
+        }
+
+        const body=req.body||{}
+        const text=typeof body.text==="string"?body.text.trim():""
+        const media=body.media&&typeof body.media==="object"?body.media:null
+        const audience=String(body.audience||"contacts").trim()
+        const recipients=Array.isArray(body.recipients)?body.recipients:[]
+
+        if(!text&&!media){
+            return res.status(400).json({error:"Text or media is required"})
+        }
+
+        if(!["contacts","except","selected"].includes(audience)){
+            return res.status(400).json({error:"Invalid audience"})
+        }
+
+        if((audience==="except"||audience==="selected")&&!recipients.length){
+            return res.status(400).json({error:"Recipients are required"})
+        }
+
+        let content
+
+        if(media){
+            const type=String(media.type||"").toLowerCase()
+
+            if(!["image","video"].includes(type)){
+                return res.status(400).json({error:"Status media must be image or video"})
+            }
+
+            const base64=String(media.base64||"").replace(/^data:[^;]+;base64,/,"")
+            const buffer=Buffer.from(base64,"base64")
+
+            if(!buffer.length){
+                return res.status(400).json({error:"Media data is empty"})
+            }
+
+            if(type==="image"){
+                content={image:buffer,caption:text||undefined,mimetype:media.mimetype||undefined}
+            }else{
+                content={video:buffer,caption:text||undefined,mimetype:media.mimetype||undefined}
+            }
+        }else{
+            content={text}
+        }
+
+        const options={
+            broadcast:true,
+            backgroundColor:String(body.background_color||"#000000"),
+            font:Number(body.font??0)
+        }
+
+        if(audience==="selected"){
+            options.statusJidList=recipients
+        }else if(audience==="except"){
+            const excluded=new Set(recipients)
+
+            const rows=await all(
+                `SELECT phone FROM contacts WHERE session=? AND phone IS NOT NULL AND phone!=''`,
+                [session.id]
+            )
+
+            options.statusJidList=rows
+                .map(x=>String(x.phone||"").replace(/\D/g,""))
+                .filter(phone=>phone.length===12&&phone.startsWith("254"))
+                .map(phone=>`${phone}@s.whatsapp.net`)
+                .filter(jid=>!excluded.has(jid))
+        }
+
+        const sent=await session.sock.sendMessage(
+            "status@broadcast",
+            content,
+            options
+        )
+
+        res.json({
+            success:true,
+            key:sent?.key||null,
+            type:media?.type||"text",
+            audience
+        })
+    }catch(err){
+        console.error("[STATUS POST]",err.message)
+        res.status(500).json({error:err.message})
+    }
 })
 
 app.get('/api/contacts/length', requireSession, async(req, res) => {
@@ -1866,19 +2217,21 @@ async function restart(){
     },500);
 }
 
-setInterval( async ()=>{
-    io.emit("sessions", getSessions())
-    await updateNames()
-}, 3000)
+const PORT=process.env.PORT||3000
 
-const PORT = process.env.PORT || 3000
-
-server.listen(PORT, async () => {
+async function startServer(){
     await restoreSessions()
+
+    setPendingIds(pendingClientIds)
+
     setSessionEventEmitter(io)
     setJwt(jwt)
-    
-    console.log(`Server running on port ${PORT}`)
-})
 
-module.exports = { app, server, updateNames }
+    server.listen(PORT,()=>{
+        console.log(`Server running on port ${PORT}`)
+    })
+}
+
+startServer()
+
+module.exports={app,server,updateNames}
