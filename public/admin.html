@@ -14,8 +14,8 @@
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<meta name="apple-mobile-web-app-title" content="WA Bot">
 	<link rel="manifest" href="/manifest.json">
-	<link rel="icon" href="/logo/logo.jpeg" type="image/jpeg">
-	<link rel="apple-touch-icon" href="/logo/logo.jpeg">
+	<link rel="icon" href="/logo/icon-192.png" type="image/jpeg">
+	<link rel="apple-touch-icon" href="/logo/icon-192.png">
 	
 	<!-- Icons & Fonts -->
 	<link rel="preconnect" href="https://fonts.googleapis.com">
@@ -773,7 +773,7 @@ body.theme-emerald #chatMessagesContainer {
 					<div id="replyPreview" class="composer-chip items-center gap-2 rounded-lg px-3 py-2 mb-2 text-[11px]">
 						<i class="fa-solid fa-reply text-anon-accent"></i>
 						<div class="min-w-0 flex-1">
-							<div class="text-[10px] uppercase tracking-wider text-anon-accent font-bold">Replying to <span id="replySender"></span></div>
+							<div class="text-[10px] uppercase tracking-wider text-anon-accent font-bold"><span id="replySender"></span></div>
 							<div id="replyText" class="truncate text-slate-300"></div>
 						</div>
 						<button type="button" onclick="clearReplyTarget()" class="w-7 h-7 rounded-md text-anon-muted hover:text-white hover:bg-white/10">
@@ -883,7 +883,7 @@ body.theme-emerald #chatMessagesContainer {
 	</nav>
 	
 	<div id="whatsappSettingsModal" class="fixed inset-0 bg-black/80 z-[9999] max-h-[100vh] hidden backdrop-blur-md items-center justify-center  transition-all duration-200">
-		<div class="glass-modal max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col border border-anon-border animate-pop-in h-[100vh]">
+		<div class="glass-modal max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col border border-anon-border animate-pop-in h-[98vh]">
 			<div class="p-5 bg-anon-sidebar border-b border-anon-border flex justify-between items-center">
 				<h3 class="font-bold text-sm text-anon-text flex items-center gap-2">
 					<i class="fa-brands fa-whatsapp text-anon-accent"></i> LuChat Settings
@@ -997,7 +997,7 @@ body.theme-emerald #chatMessagesContainer {
 	</div>
 	
 	<div id="contactsModal" class="fixed inset-0 bg-black/80 z-[9999] hidden items-center justify-center backdrop-blur-md transition-all duration-200">
-		<div class="glass-modal max-w-2xl w-full  shadow-2xl overflow-hidden flex flex-col border border-anon-border animate-pop-in h-[100vh]">
+		<div class="glass-modal max-w-2xl w-full  shadow-2xl overflow-hidden flex flex-col border border-anon-border animate-pop-in h-[98vh]">
 			<div class="p-5 bg-anon-sidebar border-b border-anon-border flex justify-between items-center">
 				<h5 class="font-bold text-sm text-anon-text flex items-center gap-2">
 					<i class="fas fa-users text-anon-accent"></i> All Contacts<span class="text-xs" id="contactSpan">(0)</span>
@@ -1227,7 +1227,7 @@ body.theme-emerald #chatMessagesContainer {
 	</div>
 
 	<div id="importModal" class="fixed inset-0 bg-black/80 z-[9999] hidden items-center justify-center backdrop-blur-md">
-		<div class="glass-modal w-full max-w-lg  shadow-2xl overflow-hidden flex flex-col  h-[100vh]">
+		<div class="glass-modal w-full max-w-lg  shadow-2xl overflow-hidden flex flex-col  h-[98vh]">
 			
 			<div class="px-4 py-3 bg-anon-sidebar border-b border-anon-border flex items-center justify-between">
 				<div class="flex items-center gap-2">
@@ -1433,7 +1433,7 @@ body.theme-emerald #chatMessagesContainer {
 		</div>
 	</div>
 	
-	<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] translate-y-20 opacity-0 transition-all pointer-events-none duration-300">
+	<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] translate-y-20 opacity-0 transition-all pointer-events-none duration-300" style="width: fit-content; max-width: 400px;">
 		<div class="glass-card px-5 py-3 rounded-full flex items-center gap-3 shadow-2xl border border-anon-accent/30 bg-slate-900/90">
 			<i id="toastIcon" class="fa-solid fa-circle-check text-anon-accent"></i>
 			<span id="toastMsg" class="text-xs font-semibold text-anon-text"></span>
@@ -1927,7 +1927,7 @@ async function loadAccountSwitcher() {
 		const response = await fetch("/api/health")
 		const data = await response.json()
 		
-		const currentSession = getCookie("adminSession")
+		const currentSession = localStorage.getItem("adminSession")
 		
 		if (!data.sessions?.length) {
 			select.innerHTML = `<option value="">No accounts available</option>`
@@ -1947,12 +1947,18 @@ async function loadAccountSwitcher() {
 }
 
 function getCookie(name) {
-	const match = document.cookie.match(
-		new RegExp("(^| )" + name + "=([^;]+)")
-	)
-	
-	return match ? decodeURIComponent(match[2]) : ""
-}
+    const nameEQ = name + "="
+    const cookies = document.cookie.split(";")
+	console.log(cookies)
+  
+    for (let cookie of cookies) {
+      cookie = cookie.trim()
+      if (cookie.indexOf(nameEQ) === 0) {
+        return decodeURIComponent(cookie.substring(nameEQ.length))
+      }
+    }
+    return null
+  }
 
 function closeAvatarModal() {
 	avatarModalRequest++;
@@ -2027,6 +2033,7 @@ async function verifyAuth() {
 		
 		if (r.ok && d.authenticated) {
 			adminSessionId = d.session_id
+			localStorage.setItem('adminSession', d.session_id)
 			
 			return true
 		}
@@ -2225,6 +2232,11 @@ function initAdminConsole() {
 
 				if(m.client_id){
 					document.querySelector(`[data-pending-id="${m.client_id}"]`)?.remove()
+					deletePendingMessage(m.client_id)
+
+				}
+				if(m.text && String(m.text).includes('--mention--') || String(m.text).includes('--mention--') &&  m.last_from_me == false || String(m.text).includes(`--mention-- @${localStorage.getItem('adminSession')}`) ){
+					showToast(`You have been mentioned in ${m.group_name} by ${m.sender_name}`, 'success')
 				}
 
                 if(
@@ -2922,7 +2934,7 @@ async function openConversation(key) {
 		);
 
 		for(const message of conversationPending){
-			createUploadingMessage(JSON.stringify(message));
+			createUploadingMessage(JSON.stringify(message), true);
 		}
 
 		requestAnimationFrame(()=>{
@@ -2936,21 +2948,21 @@ async function openConversation(key) {
 				msg_id: "m1",
 				from_me: 0,
 				sender_name: conversation.push_name || "User",
-				text: "Hello Admin, checking session status.",
+				text: "What's wrong?",
 				created_at: now - 300
 			},
 			{
 				msg_id: "m2",
 				from_me: 1,
 				sender_name: "Admin Bot",
-				text: "Session is fully active and listening to events.",
+				text: "Connection error",
 				created_at: now - 240
 			},
 			{
 				msg_id: "m3",
 				from_me: 0,
 				sender_name: conversation.push_name || "User",
-				text: "Awesome! High speed response.",
+				text: "Ooooh... okay",
 				created_at: now - 120
 			}
                 ];
@@ -3312,12 +3324,15 @@ function renderNormalMessages(messages) {
 			const replyPayload = m.msg_id ?
 				JSON.stringify({
 					id: String(m.msg_id),
+					senderName : m.sender_name || m.incoming_user_name || m.push_name || m.other_user_name || m.chat_name || 'Contactsssssss',
 					sender,
 					text: m.text || (m.media_type ? `[${m.media_type}]` : "Message")
 				})
 				.replace(/"/g, "&quot;") :
 				"";
 			
+
+			console.log(m, '======================================')
 			const replyAction = replyPayload ?
 				`<button type="button" onclick="selectReplyMessage(${replyPayload})" class="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-anon-accent" title="Reply"><i class="fa-solid fa-reply"></i></button>` :
 				"";
@@ -4710,10 +4725,14 @@ function bindSwipeReply() {
 	const resetBubble = bubble => {
 		if (!bubble) return;
 		bubble.style.transform = "";
+		console.log('reseting')
+
 		bubble.classList.remove("swipe-dragging", "swipe-ready");
 	};
 	
 	container.addEventListener("pointerdown", event => {
+		console.log('p down')
+
 		if (event.pointerType === "mouse") return;
 		const bubble = event.target.closest(".message-bubble[data-swipe-reply=\"true\"]");
 		const payload = bubble?.dataset.replyPayload || "";
@@ -4731,6 +4750,8 @@ function bindSwipeReply() {
 	});
 	
 	container.addEventListener("pointermove", event => {
+		console.log('moved')
+
 		if (!gesture || event.pointerId !== gesture.pointerId) return;
 		const rawX = (event.clientX - gesture.startX) * gesture.direction;
 		const rawY = Math.abs(event.clientY - gesture.startY);
@@ -4752,18 +4773,35 @@ function bindSwipeReply() {
 	});
 	
 	const finish = event => {
+		console.log('inishing')
+
 		if (!gesture || (event.pointerId != null && event.pointerId !== gesture.pointerId)) return;
+		console.log('inishing 5')
+
 		const current = gesture;
 		const distance = Math.max(0, (event.clientX - current.startX) * current.direction);
 		const ready = current.moved && distance * 0.7 >= threshold;
-		const payload = current.bubble.dataset.replyPayload || "";
+		let payload = current.bubble.dataset.replyPayload || "";
 		resetBubble(current.bubble);
 		gesture = null;
+		console.log('inishing 6')
 		
-		if (!ready) return;
+		if (!ready) {
+			console.log('returned not ready')
+			return};
 		try {
+		    payload = JSON.stringify(payload)
 			const reply = JSON.parse(payload);
-			selectReplyMessage(reply);
+			const replyPayload = JSON.parse(String(reply).replaceAll('&quot;', '"') )
+
+     		const me = localStorage.getItem("adminSession")
+			let senderName = replyPayload.sender == me ? "you" : replyPayload.senderName
+			//replyPayload.senderName  = senderName
+
+			console.log(replyPayload)
+
+			selectReplyMessage(replyPayload)
+
 			suppressClickUntil = Date.now() + 400;
 		} catch {}
 	};
@@ -5005,7 +5043,7 @@ function selectReplyMessage(data) {
 	const preview = el("replyPreview");
 	if (preview) preview.classList.add("is-visible");
 	if (el("replySender")) el("replySender")
-		.textContent = data.sender || "Contact";
+		.textContent = data.senderName || "Contact";
 	if (el("replyText")) el("replyText")
 		.textContent = String(data.text)
 		.length > 80 ? data.text.slice(0, 80) + '...' : data.text || "Message";
@@ -5429,6 +5467,7 @@ async function sendComposerMessage(event){
 
 		const payload=JSON.stringify({
 			id:pendingId,
+			client_id:pendingId,
 			conversation_key:conversationKey,
 			text,
 			media,
@@ -5485,6 +5524,7 @@ async function sendComposerMessage(event){
 			}
 		
 			xhr.onerror=()=>{
+				document.querySelectorAll("retry-pending")
 				reject(new Error("Message could not be sent"))
 			}
 		
@@ -5519,7 +5559,7 @@ async function sendComposerMessage(event){
     }
 }
 
-function createUploadingMessage(msg){
+function createUploadingMessage(msg, pending){
     msg=JSON.parse(msg)
 
     const id=`upload-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -5608,7 +5648,7 @@ function createUploadingMessage(msg){
 				
                 ${msg.text?`<div class="break-words font-sans text-slate-100 ">${escapeHtml(msg.text)}</div>`:""}
                 <div class="flex justify-end items-center gap-1.5 mt-1 text-[10px] text-slate-400 font-mono">
-                   <button type="button" class="retry-pending text-emerald-400 hover:text-emerald-300 text-[10px] font-semibold" onclick="retryPendingMessage('${msg.id}')">
+                   <button type="button" class="${pending ? '' : 'hidden'} retry-pending text-emerald-400 hover:text-emerald-300 text-[10px] font-semibold" onclick="retryPendingMessage('${msg.id}')">
 					<i class="fas fa-redo mr-1"></i>Retry
 				</button>  <span>${new Date().toLocaleTimeString()} <i class="fas fa-clock"></i></span>
                 </div>
@@ -5872,7 +5912,7 @@ function showToast(message, type = "success") {
 	el("toastIcon")
 		.className = type === "success" ? "fa-solid fa-circle-check text-anon-accent text-base" : "fa-solid fa-circle-xmark text-rose-500 text-base";
 	toast.classList.remove("translate-y-20", "opacity-0");
-	setTimeout(() => toast.classList.add("translate-y-20", "opacity-0"), 3500);
+	setTimeout(() => toast.classList.add("translate-y-20", "opacity-0"), 5000);
 }
 
 function linkify(text) {
