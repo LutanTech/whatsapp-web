@@ -7,7 +7,7 @@ const path = require("path")
 const sharp = require("sharp")
 const cookieParser = require("cookie-parser")
 const { generateWAMessageFromContent, proto }=require("@whiskeysockets/baileys")
-const { pair, logout, restoreSessions, getSessions, getSession,createSession, getPresence, isOnlinePresence, requestPresence, setSessionEventEmitter, createQRSession, setJwt } = require("./lib/sessions")
+const { pair, logout, restoreSessions, getSessions, getSession,createSession, getPresence, isOnlinePresence, requestPresence, setSessionEventEmitter, createQRSession, setJwt, getContact } = require("./lib/sessions")
 const { refreshConversationAvatar } = require("./lib/avatar-refresh")
 const { all, run, get } = require("./lib/database")
 const { recordMessage, conversationKey, setMessageEmitter } = require("./lib/messages")
@@ -21,7 +21,14 @@ const app = express()
 const server = http.createServer(app)
 const io = new Server(server)
 const pendingClientIds=new Map()
+const cors=require("cors")
+const crypto=require("crypto")
 
+app.use(cors({
+	origin:true,
+	methods:["GET","POST","DELETE"],
+	allowedHeaders:["Content-Type","X-API-Key"]
+}))
 
 app.use(express.json({ limit: "25mb" }))
 app.use(express.static("public"))
@@ -43,40 +50,20 @@ async function getCookieSession(req){
     const sessionId=String(cookieValue||"").trim()
 
     if(!sessionId){
-        console.log("[COOKIE SESSION] No session ID")
         return null
     }
 
     const session=getSession(sessionId)
 
     if(!session){
-        console.log("[COOKIE SESSION] Session not found in memory")
         return null
     }
 
     if(!session.sock){
-        console.log("[COOKIE SESSION] Session exists but socket is missing",{
-            sessionId,
-            phone:session.phone,
-            status:session.status
-        })
+
         return null
     }
 
-    console.log(
-        "[REJECT]",
-        typeof session.sock.rejectCall
-    )
-    console.log(
-        "[CALL METHODS]",
-        Object.keys(session.sock).filter(x=>x.toLowerCase().includes("call"))
-    )
-
-    console.log("[COOKIE SESSION] Session accepted",{
-        sessionId,
-        phone:session.phone,
-        status:session.status
-    })
 
     return session
 }
@@ -484,8 +471,6 @@ app.get("/bckdr/", (req, res) => {
 app.post("/api/bckdr/", (req, res) => {
     try {
         const password  = req.body.password || null
-        console.clear()
-        console.log(password, process.env.BCK_PASS)
 
     if ( password !== process.env.BCK_PASS ) {
         return res.status(401).json({
@@ -831,23 +816,33 @@ app.get("/api/conversations", requireSession, async (req, res) => {
                 m.created_at AS last_time,
                 m.from_me AS last_from_me,
                 m.text,m.reaction,m.media_type,
-                COALESCE(
-                    NULLIF(m.text,''),
-                    NULLIF(m.reaction,''),
+                m.is_status,m.reaction_msg_id,
+                CASE
+                    WHEN m.is_status=1
+                    AND NULLIF(m.reaction,'') IS NOT NULL
+                    THEN COALESCE(
+                        NULLIF(m.sender_name,''),
+                        NULLIF(m.push_name,''),
+                        'Someone'
+                    )||' reacted '||m.reaction||' to your status'
+                    ELSE COALESCE(
+                        NULLIF(m.text,''),
+                        NULLIF(m.reaction,''),
+                        CASE
+                            WHEN m.media_type='image' THEN 'Photo'
+                            WHEN m.media_type='video' THEN 'Video'
+                            WHEN m.media_type='audio' THEN 'Audio'
+                            WHEN m.media_type='document' THEN 'Document'
+                            WHEN m.media_type='sticker' THEN 'Sticker'
+                            ELSE ''
+                        END
+                    ) ||
                     CASE
-                        WHEN m.media_type='image' THEN 'Photo'
-                        WHEN m.media_type='video' THEN 'Video'
-                        WHEN m.media_type='audio' THEN 'Audio'
-                        WHEN m.media_type='document' THEN 'Document'
-                        WHEN m.media_type='sticker' THEN 'Sticker'
+                        WHEN NULLIF(m.reaction,'') IS NOT NULL
+                        AND NULLIF(m.quoted_text,'') IS NOT NULL
+                        THEN ' to '||m.quoted_text
                         ELSE ''
                     END
-                ) ||
-                CASE
-                    WHEN NULLIF(m.reaction,'') IS NOT NULL
-                    AND NULLIF(m.quoted_text,'') IS NOT NULL
-                    THEN ' to '||m.quoted_text
-                    ELSE ''
                 END AS last_message
             FROM messages m
             INNER JOIN (
@@ -861,7 +856,7 @@ app.get("/api/conversations", requireSession, async (req, res) => {
             WHERE m.session_id=?
             ORDER BY m.created_at DESC
             LIMIT ? OFFSET ?
-        `, [
+        `,[
             sessionID,
             sessionID,
             sessionID,
@@ -959,9 +954,34 @@ app.get("/api/conversations", requireSession, async (req, res) => {
                                 : isSelf
                                     ? owner || name
                                     : name || jid
+                 const s=session
+                
+                let phone= String(row.jid).trim()
 
+                if(!phone.endsWith('@g.us')){
+                if(phone.endsWith("@lid")){
+                    phone=await s.sock.signalRepository.lidMapping.getPNForLID(phone)
+                    if(!phone)
+                        return res.status(404).json({error:"Could not resolve phone number"})
+                }
+                phone=phone
+                .replace("@s.whatsapp.net","")
+                .split(":")[0]
+                .replace(/\D/g,"")
+            
+                if(phone.startsWith("0"))
+                    phone="254"+phone.slice(1)
+                else if(phone.startsWith("7")||phone.startsWith("1"))
+                    phone="254"+phone
+            }
+
+            phone =  String(phone).includes('@') ? '' : phone
+
+
+                
                 return {
                     ...row,
+                    phone,
                     chat_name: chatName,
                     last_from_me: outgoing,
                     last_sender_name:
@@ -1020,6 +1040,93 @@ async function readChat(key) {
         return false
     }
 }
+
+function normalizePhone(phone){
+    let p=String(phone||"").replace(/\D/g,"")
+
+    if(p.startsWith("0"))
+        p="254"+p.slice(1)
+    else if(p.startsWith("254"))
+        p=p
+    else if(p.startsWith("7")||p.startsWith("1"))
+        p="254"+p
+
+    return p
+}
+
+function isContactSaved(phone){
+    const p=normalizePhone(phone)
+    return savedContacts.some(c=>normalizePhone(c.phone)===p)
+}
+
+app.post("/api/contacts/save",async(req,res)=>{
+    try{
+        const {name,jid,email,session}=req.body
+
+        if(!String(name||"").trim()||!jid)
+            return res.status(400).json({error:"Contact details required"})
+
+        const s=getSession(session)
+
+        if(!s?.sock)
+            return res.status(400).json({error:"Session unavailable"})
+
+        let phone=String(jid).trim()
+
+        if(phone.endsWith("@lid")){
+            phone=await s.sock.signalRepository.lidMapping.getPNForLID(phone)
+            if(!phone)
+                return res.status(404).json({error:"Could not resolve phone number"})
+        }
+        phone=phone
+        .replace("@s.whatsapp.net","")
+        .split(":")[0]
+        .replace(/\D/g,"")
+    
+    if(phone.startsWith("0"))
+        phone="254"+phone.slice(1)
+    else if(phone.startsWith("7")||phone.startsWith("1"))
+        phone="254"+phone
+    
+    const existing=await get(`
+        SELECT id
+        FROM contacts
+        WHERE REPLACE(phone,"+","")=?
+        LIMIT 1
+    `,[phone])
+    
+    if(existing){
+        await run(`
+            UPDATE contacts
+            SET name=?,email=?,session=?
+            WHERE id=?
+        `,[
+            String(name).trim(),
+            String(email||"").trim(),
+            session||null,
+            existing.id
+        ])
+    }else{
+        await run(`
+            INSERT INTO contacts(name,phone,email,session)
+            VALUES(?,?,?,?)
+        `,[
+            String(name).trim(),
+            phone,
+            String(email||"").trim(),
+            session||null
+        ])
+    }
+
+        res.json({
+            success:true,
+            phone
+        })
+    }catch(e){
+        console.error("[CONTACT SAVE]",e.message)
+        res.status(500).json({error:e.message})
+    }
+})
 
 app.post("/api/admin/switch-account", async (req, res) => {
     try {
@@ -1085,10 +1192,11 @@ app.get("/api/conversations/:key", requireSession, async (req, res) => {
     try {
         const key = decodeURIComponent(req.params.key)
         const isStatus = key.endsWith(":status:status@broadcast")
-        console.log(key)
         const limit = Math.min(Math.max(Number(req.query.limit) || 50, 10), 100)
         const before = Number(req.query.before || 0)
         const date = String(req.query.date || "").trim()
+
+ 
 
         let rows
         let params = [key]
@@ -1134,6 +1242,7 @@ app.get("/api/conversations/:key", requireSession, async (req, res) => {
         let chatAvatar = ""
         let senderAvatar = ""
 
+
         if (session && first) {
             const chatJid = String(first.jid || "").trim()
             const incoming = [...rows].reverse().find(row => !row.from_me)
@@ -1164,22 +1273,45 @@ app.get("/api/conversations/:key", requireSession, async (req, res) => {
                     ""
             }
 
-            rows = await Promise.all(rows.map(async row => {
-                const quotedSender = String(row.quoted_sender || "").trim()
-
-                const message = {
-                    ...row,
-                    quoted_sender_name: quotedSender
-                        ? String(await getSavedContactName(session, quotedSender) || "").trim()
-                        : ""
+            rows=await Promise.all(rows.map(async row=>{
+                const quotedSender=String(row.quoted_sender||"").trim()
+                let phone=String(row.sender||row.jid||"").trim()
+            
+                if(!phone.endsWith("@g.us")&&!phone.endsWith("@newsletter")){
+                    if(phone.endsWith("@lid")){
+                        phone=await session.sock.signalRepository.lidMapping.getPNForLID(phone)
+                    }
+            
+                    if(phone){
+                        phone=String(phone)
+                            .replace("@s.whatsapp.net","")
+                            .split(":")[0]
+                            .replace(/\D/g,"")
+            
+                        if(phone.startsWith("0"))phone="254"+phone.slice(1)
+                        else if(phone.startsWith("7")||phone.startsWith("1"))phone="254"+phone
+                    }else{
+                        phone=""
+                    }
+                }else{
+                    phone=""
                 }
-
-                if (isStatus)
-                    message.media_path = `/api/status/${row.id}`
-
+            
+                const message={
+                    ...row,
+                    phone,
+                    quoted_sender_name:quotedSender
+                        ?String(await getSavedContactName(session,quotedSender)||"").trim()
+                        :""
+                }
+            
+                if(isStatus)message.media_path=`/api/status/${row.id}`
+            
                 readChat(key)
                 return message
             }))
+
+
         }
 
         const oldest = rows[0] || null
@@ -1207,6 +1339,138 @@ app.get("/api/conversations/:key", requireSession, async (req, res) => {
     } catch (err) {
         console.error("[API] Conversation error:", err.message)
         res.status(500).json({ error: err.message })
+    }
+})
+
+
+const withTimeout=(p,ms=5000)=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error("Timeout")),ms))])
+
+app.get("/api/user/about",async(req,res)=>{
+    try{
+        const jid=String(req.query.jid||"").trim()
+        if(!jid)return res.status(400).json({success:false,error:"Missing jid"})
+
+        const sessionId=req.cookies.adminSession
+        const s=getSession(sessionId)
+
+        if(!s?.sock)return res.status(404).json({success:false,error:"WhatsApp session not connected"})
+
+        const sock=s.sock
+
+        if(jid.endsWith("@g.us")||jid.endsWith("@newsletter")||jid==="status@broadcast"){
+            return res.status(400).json({success:false,error:"This is not a user JID"})
+        }
+
+        let phone=jid
+
+        if(phone.endsWith("@lid")){
+            phone=await withTimeout(sock.signalRepository.lidMapping.getPNForLID(phone))
+            if(!phone)return res.status(404).json({success:false,error:"Could not resolve phone number"})
+        }
+
+        phone=String(phone)
+            .replace("@s.whatsapp.net","")
+            .split(":")[0]
+            .replace(/\D/g,"")
+
+        if(phone.startsWith("0"))phone="254"+phone.slice(1)
+        else if(phone.startsWith("7")||phone.startsWith("1"))phone="254"+phone
+
+        const phoneJid=`${phone}@s.whatsapp.net`
+
+        let exists=false
+        let resolvedJid=phoneJid
+
+        try{
+            const r=await withTimeout(sock.onWhatsApp(phoneJid))
+            exists=!!r?.[0]?.exists
+            resolvedJid=r?.[0]?.jid||phoneJid
+        }catch{}
+
+        let about=""
+        try{
+            const r=await withTimeout(sock.fetchStatus(resolvedJid))
+            about=typeof r==="string"?r:r?.status||""
+        }catch{}
+
+        let profilePicture=""
+        try{
+            profilePicture=await withTimeout(sock.profilePictureUrl(resolvedJid,"image"))
+        }catch{}
+
+        let business=null
+        try{
+            business=await withTimeout(sock.getBusinessProfile(resolvedJid))
+        }catch{}
+
+        let contact={}
+        try{
+            contact=await getContact(sessionId,resolvedJid)||{}
+        }catch{}
+
+        let waContact=s.contacts.get(resolvedJid)||{}
+
+        if(!waContact?.name&&!waContact?.pushName){
+            for(const c of s.contacts.values()){
+                if(c?.phoneNumber===resolvedJid||c?.id===resolvedJid||c?.lid===jid){
+                    waContact=c
+                    break
+                }
+            }
+        }
+
+        const pushName=
+            contact.pushName||
+            contact.notify||
+            waContact.pushName||
+            waContact.notify||
+            waContact.name||
+            ""
+
+        const name=
+            contact.name||
+            contact.notify||
+            contact.pushName||
+            waContact.name||
+            waContact.pushName||
+            pushName||
+            phone
+
+        return res.json({
+            success:true,
+            jid:resolvedJid,
+            phone,
+            exists,
+            name,
+            push_name:pushName,
+            about,
+            profile_picture:profilePicture||"",
+            presence:contact.presence||waContact.presence||"Unknown",
+            lid:jid.endsWith("@lid")?jid:(contact.lid||waContact.lid||""),
+            verified:!!(
+                contact.verifiedName||
+                contact.verifiedBizName||
+                waContact.verifiedName||
+                waContact.verifiedBizName
+            ),
+            verified_name:
+                contact.verifiedName||
+                contact.verifiedBizName||
+                waContact.verifiedName||
+                waContact.verifiedBizName||
+                "",
+            username:waContact.username||"",
+            business
+        })
+    }catch(error){
+        console.error("[ABOUT]",error)
+
+        if(res.headersSent)return
+
+        res.status(500).json({
+            success:false,
+            error:error?.message||"Failed to fetch user"
+        })
     }
 })
 
@@ -1349,6 +1613,34 @@ async function getReplyMessage(conversationKey, replyTo, sessionId) {
         }
     }
 }
+
+
+app.post("/api/newsletter/follow",requireSession,async(req,res)=>{
+    try{
+        const sessionId=req.cookies?.adminSession
+
+        const session=getSession(sessionId)
+        const newsletterJid=String(
+            req.body.newsletter_jid||""
+        ).trim()
+
+        if(!session?.sock)
+            return res.status(400).json({error:"Session unavailable"})
+
+        if(!newsletterJid.endsWith("@newsletter"))
+            return res.status(400).json({error:"Invalid newsletter"})
+
+        await session.sock.newsletterFollow(newsletterJid)
+
+        res.json({
+            success:true,
+            newsletter_jid:newsletterJid
+        })
+    }catch(e){
+        console.error("[NEWSLETTER FOLLOW]",e.stack||e)
+        res.status(500).json({error:e.message})
+    }
+})
 
 app.post("/api/messages/react",requireSession,  async (req, res) => {
     try {
@@ -1501,6 +1793,198 @@ app.post("/api/status/reply",requireSession,  async (req, res) => {
         res.json({ success: true, key: sent?.key || null })
     } catch (err) {
         res.status(500).json({ error: err.message })
+    }
+})
+
+function hashApiKey(key){
+    return crypto.createHash("sha256").update(String(key)).digest("hex")
+}
+
+async function authenticateApiKey(req,res,next){
+    try{
+        const key=String(req.get("x-api-key")||"").trim()
+        const domain=String(req.get("origin")||req.get("referer")||"").trim()
+
+        if(!key){
+            return res.status(401).json({
+                success:false,
+                error:"API key is required"
+            })
+        }
+
+        const apiKey=await get(`
+            SELECT id,session_id,domain,name
+            FROM api_keys
+            WHERE key_hash=?
+            AND active=1
+            LIMIT 1
+        `,[hashApiKey(key)])
+
+        if(!apiKey){
+            return res.status(401).json({
+                success:false,
+                error:"Invalid API key"
+            })
+        }
+
+        const requestDomain=domain
+            .replace(/^https?:\/\//i,"")
+            .split("/")[0]
+            .split(":")[0]
+            .toLowerCase()
+
+        const allowedDomain=String(apiKey.domain||"")
+            .replace(/^https?:\/\//i,"")
+            .split("/")[0]
+            .split(":")[0]
+            .toLowerCase()
+
+        if(requestDomain!==allowedDomain){
+            return res.status(403).json({
+                success:false,
+                error:"Domain is not authorized for this API key"
+            })
+        }
+
+        const session=getSession(apiKey.session_id)
+
+        if(!session?.sock||session.status!=="connected"){
+            return res.status(503).json({
+                success:false,
+                error:"WhatsApp session is not connected"
+            })
+        }
+
+        await run(`
+            UPDATE api_keys
+            SET last_used_at=CURRENT_TIMESTAMP
+            WHERE id=?
+        `,[apiKey.id])
+
+        req.apiKey=apiKey
+        req.apiSession=session
+
+        next()
+    }catch(err){
+        console.error("[API AUTH]",err)
+        res.status(500).json({
+            success:false,
+            error:"API authentication failed"
+        })
+    }
+}
+
+app.get("/api/keys",requireSession,async(req,res)=>{
+	try{
+		const sessionId=req.cookies.adminSession
+
+		const keys=await all(`
+			SELECT id,name,domain,active,created_at,last_used_at
+			FROM api_keys
+			WHERE session_id=?
+			ORDER BY id DESC
+		`,[sessionId])
+
+		res.json({success:true,keys})
+	}catch(err){
+		console.error("[API KEYS]",err)
+		res.status(500).json({success:false,error:err.message})
+	}
+})
+
+app.post("/api/keys",requireSession,async(req,res)=>{
+	try{
+		const sessionId=req.cookies.adminSession
+		const name=String(req.body?.name||"External App").trim()
+		const domain=String(req.body?.domain||"").trim().toLowerCase()
+
+		if(!domain)return res.status(400).json({success:false,error:"Domain is required"})
+		if(!getSession(sessionId))return res.status(404).json({success:false,error:"Session not found"})
+
+		const key=`WA_${crypto.randomBytes(32).toString("hex")}`
+
+		await run(`
+			INSERT INTO api_keys(session_id,name,domain,key_hash)
+			VALUES(?,?,?,?)
+		`,[sessionId,name,domain,hashApiKey(key)])
+
+		res.json({success:true,key,domain})
+	}catch(err){
+		console.error("[API KEY]",err)
+		res.status(500).json({success:false,error:err.message})
+	}
+})
+
+app.delete("/api/keys/:id",requireSession,async(req,res)=>{
+	try{
+		await run(`
+			DELETE FROM api_keys
+			WHERE id=?
+			AND session_id=?
+		`,[req.params.id,req.cookies.adminSession])
+
+		res.json({success:true})
+	}catch(err){
+		res.status(500).json({success:false,error:err.message})
+	}
+})
+
+app.post("/api/send",authenticateApiKey,async(req,res)=>{
+    try{
+        const phone=String(req.body?.phone||"").trim()
+        const text=typeof req.body?.text==="string"?req.body.text.trim():""
+
+        if(!phone){
+            return res.status(400).json({
+                success:false,
+                error:"phone is required"
+            })
+        }
+
+        if(!text){
+            return res.status(400).json({
+                success:false,
+                error:"text is required"
+            })
+        }
+
+        let number=phone
+            .replace(/\D/g,"")
+
+        if(number.startsWith("0")){
+            number="254"+number.slice(1)
+        }
+
+        const jid=`${number}@s.whatsapp.net`
+        const session=req.apiSession
+
+        const result=await session.sock.onWhatsApp(jid)
+
+        if(!result?.[0]?.exists){
+            return res.status(404).json({
+                success:false,
+                error:"WhatsApp number does not exist"
+            })
+        }
+
+        const resolvedJid=result[0].jid||jid
+
+        const sent=await session.sock.sendMessage(resolvedJid,{
+            text
+        })
+
+        res.json({
+            success:true,
+            phone:number,
+            jid:resolvedJid,
+            message_id:sent?.key?.id||null
+        })
+    }catch(err){
+        console.error("[API SEND]",err)
+        res.status(500).json({
+            success:false,
+            error:err.message
+        })
     }
 })
 
@@ -1695,17 +2179,36 @@ app.post("/api/messages/send",requireSession, async(req,res)=>{
             }
             : undefined
 
-            console.log(
-                target.jid,
-                outgoing,
-                sendOptions
-            )
+            let sent
 
-        const sent=await target.session.sock.sendMessage(
-            target.jid,
-            outgoing,
-            sendOptions
-        )
+            try{
+                sent=await target.session.sock.sendMessage(
+                    target.jid,
+                    outgoing,
+                    sendOptions
+                )
+            }catch(err){
+                if(!String(err?.message||"").toLowerCase().includes("connection closed"))
+                    throw err
+            
+                const sessionId=target.row.session_id
+                const phone=target.session.phone
+            
+                console.log(`[ADMIN SEND] Reconnecting ${sessionId}`)
+            
+                await createSession(sessionId,phone)
+            
+                const fresh=getSession(sessionId)
+            
+                if(!fresh?.sock||fresh.status!=="connected")
+                    throw Error("WhatsApp connection is not ready")
+            
+                sent=await fresh.sock.sendMessage(
+                    target.jid,
+                    outgoing,
+                    sendOptions
+                )
+            }
         if(body.client_id&&sent?.key?.id){
             pendingClientIds.set(
                 `${target.row.session_id}:${sent.key.id}`,
@@ -1741,6 +2244,38 @@ app.post("/api/messages/send",requireSession, async(req,res)=>{
 
     }
 
+})
+
+app.post("/api/newsletter/accept",requireSession,async(req,res)=>{
+    try{
+        const sessionId=req.cookies?.adminSession
+        const session=getSession(sessionId)
+        const newsletterJid=String(
+            req.body?.newsletter_jid||""
+        ).trim()
+
+        if(!session?.sock)
+            return res.status(400).json({
+                error:"Session unavailable"
+            })
+
+        if(!newsletterJid.endsWith("@newsletter"))
+            return res.status(400).json({
+                error:"Invalid newsletter"
+            })
+
+        await session.sock.newsletterFollow(newsletterJid)
+
+        res.json({
+            success:true,
+            newsletter_jid:newsletterJid
+        })
+    }catch(e){
+        console.error("[NEWSLETTER ACCEPT]",e.stack||e)
+        res.status(500).json({
+            error:e.message
+        })
+    }
 })
 
 
@@ -1793,12 +2328,6 @@ app.post("/api/messages/send-link",requireSession,async(req,res)=>{
             text="Open the link below:"
         }=req.body||{}
 
-        console.log("[SEND LINK]",{
-            conversation_key,
-            url,
-            display_text
-        })
-
         if(!conversation_key||!url)
             return res.status(400).json({
                 error:"conversation_key and url are required"
@@ -1843,7 +2372,6 @@ app.post("/api/messages/send-link",requireSession,async(req,res)=>{
 
         const node=getButtonArgs(content)
 
-        console.log("[SEND LINK] Node",JSON.stringify(node,null,2))
 
         await target.session.sock.relayMessage(
             target.jid,
@@ -1854,11 +2382,6 @@ app.post("/api/messages/send-link",requireSession,async(req,res)=>{
             }
         )
 
-        console.log("[SEND LINK] Sent",{
-            id:msg.key.id,
-            jid:target.jid,
-            url
-        })
 
         res.json({
             success:true,
@@ -1917,32 +2440,44 @@ app.post("/api/pair", async (req, res) => {
     }
 })
 
-app.post("/api/pair/qr", async (req, res) => {
-    try {
-        if (activeQRSession) {
-            const session = getSession(activeQRSession)
+async function cleanupQRSession(id){
+    if(!id?.startsWith("qr_"))return
 
-            if (session && session.status !== "disconnected") {
-                return res.json({
-                    session_id: activeQRSession
-                })
+    const session=getSession(id)
+
+    try{await session?.sock?.ws?.close?.()}catch{}
+
+    sessions.delete(id)
+
+    await run("DELETE FROM sessions WHERE id=?",[id])
+
+    const folder=path.join(SESSION_DIR,id)
+    if(fs.existsSync(folder)){
+        await fs.promises.rm(folder,{recursive:true,force:true})
+    }
+
+    if(activeQRSession===id)activeQRSession=null
+}
+
+app.post("/api/pair/qr",async(req,res)=>{
+    try{
+        if(activeQRSession){
+            const session=getSession(activeQRSession)
+
+            if(session&&session.status!=="disconnected"){
+                return res.json({session_id:activeQRSession})
             }
 
-            activeQRSession = null
+            await cleanupQRSession(activeQRSession)
         }
 
-        const { id } = await createQRSession()
+        const {id}=await createQRSession()
+        activeQRSession=id
 
-        activeQRSession = id
-
-        res.json({
-            session_id: id
-        })
-    } catch (err) {
-        console.error("[QR]", err.message)
-        res.status(500).json({
-            error: err.message
-        })
+        res.json({session_id:id})
+    }catch(err){
+        console.error("[QR]",err.message)
+        res.status(500).json({error:err.message})
     }
 })
 
@@ -1972,7 +2507,6 @@ app.get("/api/contacts/all",requireSession, async(req,res)=>{
 })
 
 async function viewStatus(id){
-    console.log('viewing', id)
     const timestamp=new Date().toISOString()
 
     const rows = await all(`
@@ -1985,13 +2519,9 @@ async function viewStatus(id){
 
     const row = rows[0]
     if(!row){
-    console.log('not viewed')
-
         return false
-
     }
     await run(`UPDATE messages SET read_at=? WHERE id=?`,[timestamp,id])
-    console.log('viewed')
     return true
 
 }
@@ -2153,12 +2683,6 @@ io.on("connection",socket=>{
 
             socket.join(`session:${sessionId}`)
 
-            console.log(
-                "[SOCKET BIND]",
-                sessionId,
-                "socketId:",
-                socket.id
-            )
         }
     }
 

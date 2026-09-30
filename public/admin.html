@@ -752,11 +752,11 @@ body.theme-emerald #chatMessagesContainer {
 						<span id="chatSessionBadge" class="hidden lg:inline-block px-3 py-1 bg-anon-panel/80 rounded-md text-[11px] border border-anon-border/80 font-mono text-anon-muted">
 							Session: Active
 						</span>
-						<button onclick="openConversation(activeThread?.conversation_key)" class="w-9 h-9 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors" title="Reload Conversation">
+						<button onclick="openConversation(activeThread?.conversation_key, activeThread.phone)" class="w-9 h-9 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors" title="Reload Conversation">
 							<i class="fa-solid fa-arrows-rotate text-xs"></i>
 						</button>
-						<button onclick="logoutAdmin()" class="w-9 h-9 rounded-lg hover:bg-rose-500/10 hover:text-rose-400 text-rose-500 flex items-center justify-center transition-colors" title="Exit Admin Console">
-							<i class="fa-solid fa-power-off text-xs"></i>
+						<button id="saveContactBtn" onclick="openSaveContactModal()" class="w-9 h-9 rounded-lg hover:bg-anon-accent/10 hover:text-anon-accent text-anon-muted flex items-center justify-center transition-colors" title="Save Contact">
+							<i class="fa-solid fa-user-plus text-xs"></i>
 						</button>
 					</div>
 				</header>
@@ -809,7 +809,7 @@ body.theme-emerald #chatMessagesContainer {
 					
 					<div id="composerStatus" class="hidden text-[10px] text-anon-muted px-1 pb-1"></div>
 					<form class="msg-group flex" onsubmit="sendComposerMessage(event)">
-						<input id="attachmentInput" type="file" class="hidden" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt" onchange="handleAttachmentChange(event)">
+						<input id="attachmentInput" type="file" class="hidden" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt" onchange="handleAttachmentChange(event)">
 						<input id="cameraInput" type="file" class="hidden" accept="image/*" capture="environment" onchange="handleAttachmentChange(event)">
 						<div class="composer-editor relative flex-1 min-w-0">
 							<textarea id="msg-input" rows="1" placeholder="Write a message…" autocomplete="off" class="w-full min-h-[54px] max-h-[150px] overflow-y-auto bg-anon-panel/80 border border-anon-border/80 rounded-xl pl-4 pr-4 pb-12 pt-3 text-xs text-anon-text placeholder-anon-muted/60 outline-none focus:border-anon-accent/60 focus:ring-1 focus:ring-anon-accent/30"></textarea>
@@ -900,6 +900,8 @@ body.theme-emerald #chatMessagesContainer {
 							<div>
 								<p class="text-[10px] text-anon-muted font-bold uppercase tracking-wider mb-1">Appearance</p>
 								<p class="text-[10px] text-anon-muted mt-1">Change how LuChat looks</p>
+
+								<button onclick="openModal('apiKeysModal')">API keys </button>
 							</div>
 							<i class="fa-solid fa-sun text-2xl text-anon-accent/70"></i>
 						</div>
@@ -995,6 +997,47 @@ body.theme-emerald #chatMessagesContainer {
 			</div>
 		</div>
 	</div>
+
+		
+	<div id="userAboutModal" class="fixed inset-0 bg-black/80 z-[9999] max-h-[100vh] hidden backdrop-blur-md items-center justify-center  transition-all duration-200">
+		<div class="glass-modal max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col border border-anon-border animate-pop-in h-[98vh]">
+			<div class="p-5 bg-anon-sidebar border-b border-anon-border flex justify-between items-center">
+				<h3 class="font-bold text-sm text-anon-text flex items-center gap-2">
+					<i class="fa-brands fa-whatsapp text-anon-accent"></i> About
+				</h3>
+				<button onclick="closeModal('userAboutModal')" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors">
+					<i class="fa-solid fa-xmark text-base"></i>
+				</button>
+			</div>
+			
+			<div class="p-6 space-y-5 overflow-y-auto max-h-[98vh] scrollbar-thin"></div>
+		</div>
+	</div>
+
+	<div id="apiKeysModal" class="fixed inset-0 bg-black/80 z-[9999] hidden backdrop-blur-md items-center justify-center">
+		<div class="glass-modal max-w-2xl w-full h-[98vh] shadow-2xl overflow-hidden flex flex-col border border-anon-border">
+			<div class="p-5 bg-anon-sidebar border-b border-anon-border flex justify-between items-center">
+				<h3 class="font-bold text-sm text-anon-text"><i class="fa-solid fa-key text-anon-accent mr-2"></i>API Keys</h3>
+				<button onclick="closeModal('apiKeysModal')" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+			</div>
+			<div class="p-5 overflow-y-auto">
+				<div class="bg-anon-panel border border-anon-border rounded-xl p-4 mb-5">
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<input id="apiKeyName" placeholder="Application name" class="bg-anon-sidebar border border-anon-border rounded-lg px-3 py-2.5 text-sm text-anon-text outline-none">
+						<input id="apiKeyDomain" placeholder="example.com" class="bg-anon-sidebar border border-anon-border rounded-lg px-3 py-2.5 text-sm text-anon-text outline-none">
+					</div>
+					<button onclick="createApiKey()" class="mt-3 w-full bg-anon-accent text-white rounded-lg py-2.5 text-sm font-semibold">
+						<i class="fa-solid fa-plus mr-1"></i>Create API Key
+					</button>
+				</div>
+				<div class="flex justify-between items-center mb-3">
+					<h4 class="text-sm font-semibold text-anon-text">API Keys</h4>
+					<button onclick="loadApiKeys()" class="text-xs text-anon-accent"><i class="fa-solid fa-rotate-right"></i></button>
+				</div>
+				<div id="apiKeysList"></div>
+			</div>
+		</div>
+	</div>
 	
 	<div id="contactsModal" class="fixed inset-0 bg-black/80 z-[9999] hidden items-center justify-center backdrop-blur-md transition-all duration-200">
 		<div class="glass-modal max-w-2xl w-full  shadow-2xl overflow-hidden flex flex-col border border-anon-border animate-pop-in h-[98vh]">
@@ -1014,9 +1057,15 @@ body.theme-emerald #chatMessagesContainer {
 						<i class="fa-solid fa-xmark text-base"></i>
 					</button>
 				</div>
+
+				
 			</div>
 			
-			<div class="p-4 space-y-5 overflow-y-auto max-h-[95vh] scrollbar-thin" onscroll="loadMoreContacts(this)">
+			<div class="p-4 space-y-5 overflow-y-auto max-h-[95vh] scrollbar-thin>
+				<div class="relative flex items-center bg-anon-panel/80 rounded-lg px-3.5 py-2.5 border border-anon-border/80 focus-within:border-anon-accent/50 focus-within:ring-1 focus-within:ring-anon-accent/50">
+					<i class="fa-solid fa-magnifying-glass text-anon-muted text-xs mr-3"></i>
+					<input id="contactSearch" type="text" placeholder="Search contacts..." class="w-full bg-transparent text-xs outline-none text-anon-text placeholder-anon-muted/60" oninput="renderContacts(this.value)">
+				</div>
 				<div class="grid grid-cols-1 sm:grid-cols-2" id="contactsList">
 					
 				</div>
@@ -1334,6 +1383,49 @@ body.theme-emerald #chatMessagesContainer {
 		</div>
 	</div>
 	
+
+	<!-- <button id="saveContactBtn" onclick="openSaveContactModal()" class="w-9 h-9 rounded-lg hover:bg-anon-accent/10 hover:text-anon-accent text-anon-muted flex items-center justify-center transition-colors" title="Save Contact">
+		<i class="fa-solid fa-user-plus text-xs"></i>
+	</button> -->
+	
+	<div id="saveContactModal" class="hidden fixed inset-0 z-[100] items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+		<div class="w-full max-w-sm bg-anon-sidebar border border-anon-border rounded-xl shadow-2xl overflow-hidden">
+			<div class="px-5 py-4 border-b border-anon-border flex items-center justify-between">
+				<div>
+					<h3 class="text-sm font-bold text-anon-text">Save Contact</h3>
+					<p class="text-[10px] text-anon-muted mt-0.5">Add this WhatsApp contact</p>
+				</div>
+				<button type="button" onclick="closeSaveContactModal()" class="w-8 h-8 rounded-lg text-anon-muted hover:text-white hover:bg-white/10">
+					<i class="fa-solid fa-xmark text-xs"></i>
+				</button>
+			</div>
+	
+			<form onsubmit="saveActiveContact(event)" class="p-5 space-y-4">
+				<div>
+					<label class="block text-[10px] font-semibold text-anon-muted uppercase tracking-wider mb-1.5">Name</label>
+					<input id="saveContactName" type="text" autocomplete="off" class="w-full h-10 px-3 rounded-lg bg-anon-panel border border-anon-border text-xs text-anon-text outline-none focus:border-anon-accent/60" placeholder="Contact name">
+				</div>
+	
+				<div>
+					<label class="block text-[10px] font-semibold text-anon-muted uppercase tracking-wider mb-1.5">Phone</label>
+					<input id="saveContactPhone" type="text" readonly class="w-full h-10 px-3 rounded-lg bg-anon-panel/60 border border-anon-border text-xs text-anon-muted outline-none hidden" placeholder="Resolved when saved">
+				</div>
+	
+				<div>
+					<label class="block text-[10px] font-semibold text-anon-muted uppercase tracking-wider mb-1.5">Email <span class="normal-case">(optional)</span></label>
+					<input id="saveContactEmail" type="email" autocomplete="off" class="w-full h-10 px-3 rounded-lg bg-anon-panel border border-anon-border text-xs text-anon-text outline-none focus:border-anon-accent/60" placeholder="Email address">
+				</div>
+	
+				<div id="saveContactError" class="hidden text-[10px] text-rose-400"></div>
+	
+				<div class="flex justify-end gap-2 pt-1">
+					<button type="button" onclick="closeSaveContactModal()" class="px-4 h-9 rounded-lg bg-anon-panel border border-anon-border text-xs text-anon-muted hover:text-anon-text">Cancel</button>
+					<button id="saveContactSubmit" type="submit" class="px-4 h-9 rounded-lg bg-anon-accent text-white text-xs font-semibold hover:opacity-90">Save Contact</button>
+				</div>
+			</form>
+		</div>
+	</div>
+
 	<div id="modalOverlay" class="fixed inset-0 bg-black/80 z-[9999] hidden items-center justify-center p-4 backdrop-blur-md">
 		<div class="glass-modal max-w-sm w-full rounded-2xl p-6 border border-anon-border shadow-2xl animate-pop-in">
 			<h3 id="modalTitle" class="font-bold text-base text-anon-text">Logout Session</h3>
@@ -1441,7 +1533,7 @@ body.theme-emerald #chatMessagesContainer {
 	</div>
 	
 	<div id="statusDayModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/90 backdrop-blur-md">
-		<div class="relative w-full max-w-md h-full max-h-[100vh] bg-slate-950 sm:rounded-2xl flex flex-col justify-between overflow-hidden border border-slate-800 shadow-2xl select-none">
+		<div class="relative w-full max-w-md h-full max-h-[100vh] bg-slate-950 sm:rounded-2xl flex flex-col justify-between overflow-hidden  shadow-2xl select-none">
 			
 			<div class="absolute top-0 inset-x-0 z-20 p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent space-y-3">
 				<div id="statusProgressContainer" class="flex gap-1.5 w-full"></div>
@@ -1454,6 +1546,10 @@ body.theme-emerald #chatMessagesContainer {
 						</div>
 					</div>
 					<div class="flex items-center gap-1">
+						<button id="statusVolumeBtn" onclick="toggleStatusVolume()" class="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10" title="Mute">
+							<i class="fa-solid fa-volume-mute text-sm"></i>
+						
+						</button>
 						<button id="statusPauseBtn" onclick="toggleStatusPause()" class="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10" title="Pause status">
 							<i class="fa-solid fa-pause text-sm"></i>
 						</button>
@@ -1465,8 +1561,22 @@ body.theme-emerald #chatMessagesContainer {
 			</div>
 			
 			<div class="absolute inset-0 z-10 flex">
-				<div onclick="prevStatusSegment()" class="w-1/3 h-full cursor-pointer"></div>
-				<div onclick="nextStatusSegment()" class="w-2/3 h-full cursor-pointer"></div>
+				<div onclick="prevStatusSegment()" class="w-[20%] h-full cursor-pointer"></div>
+			
+				<div id="statusVolumeArea" onclick="toggleStatusPause()" class="w-[60%] h-full cursor-pointer">
+					<div class="volume-control hidden right-[20%] top-0 left-[20%] bottom-0 w-full flex items-center justify-center bg-red-500 pointer-events-none rotate-[-90deg]">
+						<input type="range" id="volume-range" min="0" max="1" step="0.01" value="1" class="border border-1 rounded-lg"/>
+					</div>
+				</div>
+			
+				<div onclick="nextStatusSegment()" class="w-[20%] h-full absolute right-0 cursor-pointer"></div>
+			</div>
+			
+			<div id="statusVolumeOverlay" class="hidden fixed inset-0 z-[999] pointer-events-none items-center justify-center">
+				<div class="bg-black/70 text-white rounded-xl px-5 py-4 text-center">
+					<i id="statusVolumeIcon" class="fa-solid fa-volume-high text-2xl"></i>
+					<div id="statusVolumeValue" class="text-xl font-bold mt-1">100%</div>
+				</div>
 			</div>
 			
 			<div id="statusDayModalContent" class="w-full h-full flex items-center justify-center p-4"></div>
@@ -1512,7 +1622,7 @@ let statusTimer = null;
 let statusPaused = false;
 let statusSegmentStartedAt = 0;
 let statusRemainingMs = 0;
-let statusDurationMs = 5000;
+let statusDurationMs = 6000;
 const STATUS_DURATION = 5000;
 const defaultWhatsAppSettings = {
 	privacyMode: false,
@@ -1529,8 +1639,7 @@ let start = currentPage * per_page
 let end = start + per_page
 let pageContacts = contacts.slice(0, end)
 let contactsCount = 0
-const timestamp = new Date()
-	.toISOString()
+const timestamp = new Date().toISOString()
 let conversationsRefreshTimer = null;
 const viewedStatusesSet = new Set();
 let newMessagesCount = 0;
@@ -1543,6 +1652,20 @@ let conversationsHasNext=true
 const conversationsLimit=10
 let statusAudience="contacts"
 let statusRecipients=[]
+let savedContacts=[]
+let statusUserGroups = [];
+let statusUserIndex = -1;
+let currentStatusUserIndex = -1;
+let selectedAttachments=[];
+const statusVolumeArea=document.getElementById("statusVolumeArea")
+const volumeRange=document.getElementById("volume-range")
+
+let volumeDragging=false
+let volumeStartY=0
+let volumeStartValue=1
+let statusVolumeBeforeMute=1
+
+
 
 async function loadMoreConversations(){
     if(conversationsLoading||!conversationsHasNext)return
@@ -1571,6 +1694,106 @@ async function loadMoreConversations(){
         console.error("[CONVERSATIONS]",e)
     }finally{
         conversationsLoading=false
+    }
+}
+
+async function isContactSaved(phone){
+
+	let contacts = localStorage.getItem('contacts') 
+	contacts = contacts ? JSON.parse(contacts) : await fetchContacts()
+
+    return contacts.some(c=>String(c.phone||"").replace(/\D/g,"")===String(phone||"").replace(/\D/g,""))
+}
+
+async function updateContactButton(phone){
+    const button=document.getElementById("saveContactBtn")
+    if(!button )return
+    if(!phone || phone.length > 12){
+		button.style.display = "none"
+		return
+	}
+
+    const c=conversations.find(x=>x.conversation_key===activeThread?.conversation_key)||activeThread
+    const saved= await isContactSaved(phone)
+
+    saved ? button.innerHTML = '<i class="fas fa-ellipsis rotate-[90deg]"></i>' : button.innerHTML = '<i class="fas fa-user-plus"></i>'
+
+    button.title=saved?"Settings":"Save Contact"
+}
+
+function openSaveContactModal(){
+    const c=conversations.find(x=>x.conversation_key===activeThread?.conversation_key)||activeThread
+
+    if(!c?.jid)
+        return showToast("No contact selected")
+
+    document.getElementById("saveContactName").value=c.chat_name||c.sender_name||c.push_name||""
+    document.getElementById("saveContactPhone").value=String(c.jid).endsWith("@lid")?"Will be resolved":""
+    document.getElementById("saveContactEmail").value=""
+    document.getElementById("saveContactError").classList.add("hidden")
+
+    const modal=document.getElementById("saveContactModal")
+    modal.classList.remove("hidden")
+    modal.classList.add("flex")
+}
+
+function closeSaveContactModal(){
+    const modal=document.getElementById("saveContactModal")
+    modal.classList.add("hidden")
+    modal.classList.remove("flex")
+}
+
+async function saveActiveContact(event){
+    event.preventDefault()
+
+    const c=conversations.find(x=>x.conversation_key===activeThread?.conversation_key)||activeThread
+    const name=document.getElementById("saveContactName").value.trim()
+    const email=document.getElementById("saveContactEmail").value.trim()
+    const button=document.getElementById("saveContactSubmit")
+
+    if(!name)
+        return showToast("Name is required")
+
+    button.disabled=true
+    button.innerHTML='<i class="fa-solid fa-spinner fa-spin text-xs"></i> Saving'
+
+    try{
+        const r=await fetch("/api/contacts/save",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                name,
+                jid:c.jid,
+                email,
+                session:c.session_id||c.session_phone||null
+            })
+        })
+
+        const d=await r.json()
+
+        if(!r.ok)
+            throw Error(d.error||"Failed to save contact")
+
+        savedContacts.push({
+            name,
+            phone:d.phone,
+            email,
+            session:c.session_id||c.session_phone||null
+        })
+
+        c.phone=d.phone
+
+        updateContactButton(c.phone)
+        fetchContacts()
+        closeSaveContactModal()
+        showToast("Contact saved","success")
+
+		button.disabled=false
+        button.innerHTML="Save Contact"
+    }catch(e){
+        button.disabled=false
+        button.innerHTML="Save Contact"
+        showToast(e.message)
     }
 }
 
@@ -1771,7 +1994,7 @@ function reloadServer(btn) {
 	fetch('api/restart')
 		.then(r => r.json())
 		.then(data => {
-			console.log(data)
+			showToast('Restarting...')
 		})
 	setTimeout(() => {
 		i.classList.remove('fa-spin')
@@ -1949,7 +2172,6 @@ async function loadAccountSwitcher() {
 function getCookie(name) {
     const nameEQ = name + "="
     const cookies = document.cookie.split(";")
-	console.log(cookies)
   
     for (let cookie of cookies) {
       cookie = cookie.trim()
@@ -2156,8 +2378,7 @@ function initAdminConsole() {
 				el("socket-dot").className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-anon-sidebar glow-active"
 				el("socket-text").innerText="Connected"
 			
-				const sessionId=document.cookie.split("; ").find(x=>x.startsWith("adminSession="))?.split("=")[1]
-				console.log("[SOCKET CONNECT]",socket.id,sessionId)
+				const sessionId=localStorage.getItem('adminSession')
 			
 				if(sessionId)socket.emit("session",sessionId)
 
@@ -2228,82 +2449,87 @@ function initAdminConsole() {
 				renderConversationsList();
 			});
 			
-            socket.on("message",m=>{
+			socket.on("message",m=>{
+
 
 				if(m.client_id){
 					document.querySelector(`[data-pending-id="${m.client_id}"]`)?.remove()
 					deletePendingMessage(m.client_id)
-
 				}
-				if(m.text && String(m.text).includes('--mention--') || String(m.text).includes('--mention--') &&  m.last_from_me == false || String(m.text).includes(`--mention-- @${localStorage.getItem('adminSession')}`) ){
-					showToast(`You have been mentioned in ${m.group_name} by ${m.sender_name}`, 'success')
+			
+				const isStatusReaction=!!m.is_status&&!!m.reaction&&!!m.reaction_msg_id
+	
+				if(isStatusReaction){
+					showToast(`${m.sender_name} reacted ${m.reaction} to your status`)
 				}
+			
+				if(m.is_status&&m.status_type==="remove_reaction"){
+					showToast(`${m.sender_name} removed their reaction from your status`)
+				}
+			
+				if(m.text&&String(m.text).includes("--mention--")||String(m.text).includes("--mention--")&&m.last_from_me==false||String(m.text).includes(`--mention-- @${localStorage.getItem("adminSession")}`)){
+					showToast(`You have been mentioned in ${m.group_name} by ${m.sender_name}`,"success")
+				}
+			
+				if(activeThread&&m.conversation_key===activeThread.conversation_key){
+			
+					if(m.jid==="status@broadcast"&&!isStatusReaction&&!m.reaction){
+			
+						if(Array.isArray(window.currentChatMessages)){
+			
+							const exists=window.currentChatMessages.some(x=>x.id===m.id)
+			
+							if(!exists){
+								window.currentChatMessages.push(m)
+								renderChatThread(window.currentChatMessages,false)
+							}
+						}
+			
+					}else{
+						appendMessageToChat(m)
+					}
+				}
+			
+				if(!m.conversation_key)
+					return
+			
+				const index=conversations.findIndex(c=>c.conversation_key===m.conversation_key)
+			
+				const timestamp=Number(m.timestamp||m.created_at||Math.floor(Date.now()/1000))
 
-                if(
-                    activeThread &&
-                    m.conversation_key===activeThread.conversation_key
-                ){
-            
-                    if(m.jid==="status@broadcast"){
-            
-                        if(Array.isArray(window.currentChatMessages)){
-            
-                            const exists=window.currentChatMessages.some(
-                                x=>x.id===m.id
-                            )
-            
-                            if(!exists){
-            
-                                window.currentChatMessages.push(m)
-            
-                                renderChatThread(
-                                    window.currentChatMessages,
-                                    false
-                                )
-            
-                            }
-            
-                        }
-            
-                    }else{
-            
-                        appendMessageToChat(m)
-            
-                    }
-            
-                }
-            
-                if(!m.conversation_key)
-                    return
-            
-                const index=conversations.findIndex(
-                    c=>c.conversation_key===m.conversation_key
-                )
-            
-                const timestamp=Number(
-                    m.timestamp||
-                    m.created_at||
-                    Math.floor(Date.now()/1000)
-                )
-            
+				const lastMessage=isStatusReaction
+				? `${m.sender_name} reacted ${m.reaction} to your status`
+				: m.reaction ? `Reacted ${m.reaction} to ${m.reaction_msg_id}` : m.media_type ? `🗎 ${m.media_type}` : m.text||m.caption||m.media_type||m.type||""
+			
+				const lastMessageType=isStatusReaction
+					? "reaction"
+					: m.media_type||m.type||""
+
+			
 				if(index>=0){
+			
 					conversations[index]={
 						...conversations[index],
 						...m,
-						last_message:m.text||m.caption||m.type||"",
-						last_message_type:m.type||conversations[index].last_message_type,
-						last_message_at:timestamp,
+						last_message:lastMessage
+						? lastMessage.charAt(0).toUpperCase()+lastMessage.slice(1)
+						: "Empty message",
+						last_message_type:lastMessageType||conversations[index].last_message_type,
+				        last_message_at:timestamp,
 						last_time:timestamp,
 						updated_at:timestamp,
 						is_typing:false,
 						is_recording:false
 					}
+
+			
 				}else{
+			
 					conversations.push({
 						...m,
 						sender_name:m.sender_name||m.sender||"",
-						last_message:m.text||m.caption||m.type||"",
-						last_message_type:m.type||"",
+						last_message:lastMessage,
+						last_message_type:lastMessageType,
 						last_message_at:timestamp,
 						last_time:timestamp,
 						updated_at:timestamp,
@@ -2311,11 +2537,11 @@ function initAdminConsole() {
 						is_recording:false
 					})
 				}
-            
-                renderConversationsList()
-            
-            })
 			
+				renderConversationsList()
+
+			})
+
 			socket.on("invalidateContacts", () => {
 				localStorage.removeItem('contacts')
 			})
@@ -2326,7 +2552,6 @@ function initAdminConsole() {
 			})
 			
 			socket.on("call",call=>{
-				console.log("[CALL]",call)
 			
 				if(call.status==="offer"){
 					showIncomingCall(call)
@@ -2406,8 +2631,7 @@ function initAdminConsole() {
 				.innerText = "Standalone Preview";
 		}
 	} else {
-		el("socket-text")
-			.innerText = "Preview Mode";
+		el("socket-text").innerText = "Preview Mode";
 	}
 	
 	fetchConversations();
@@ -2500,7 +2724,6 @@ async function retryPendingMessages(){
 
             await deletePendingMessage(id)
 
-            console.log("[RETRY SUCCESS]",id,data.key?.id)
         }catch(err){
             console.error("[RETRY ERROR]",message.id,err.message)
         }
@@ -2515,7 +2738,7 @@ async function fetchConversations() {
 		conversations=data.conversations||[]
 		conversationsPage=data.pagination?.page||1
 		conversationsHasNext=Boolean(data.pagination?.has_next)
-renderConversationsList()
+        renderConversationsList()
 	} catch {}
 	renderConversationsList();
 }
@@ -2608,6 +2831,36 @@ function renderConversationsList() {
 		return;
 	}
 	
+	const mediaIcons = {
+		image: "fa-image",
+		video: "fa-video",
+		audio: "fa-music",
+		document: "fa-file",
+		sticker: "fa-note-sticky",
+		contact: "fa-address-card",
+		contacts: "fa-address-book",
+		location: "fa-location-dot",
+		live_location: "fa-location-crosshairs",
+		poll: "fa-square-poll-vertical",
+		link: "fa-link"
+	};
+	
+	const mediaLabels = {
+		image: "Image",
+		video: "Video",
+		audio: "Audio",
+		document: "Document",
+		sticker: "Sticker",
+		contact: "Contact",
+		contacts: "Contacts",
+		location: "Location",
+		live_location: "Live Location",
+		poll: "Poll",
+		link: "Link"
+	};
+	
+
+
 	c.innerHTML = filtered.map(x => {
 			const key = x.conversation_key;
 			const active = activeThread?.conversation_key === key;
@@ -2615,11 +2868,21 @@ function renderConversationsList() {
 			
 			const isTyping = x.is_typing === true;
 			const isRecording = x.is_recording === true;
+			const mediaType = String(x.media_type || "").toLowerCase();
+			const mediaIcon = mediaIcons[mediaType];
+			const mediaLabel = mediaLabels[mediaType];
+			
 			const msg = isTyping ?
 				"typing..." :
 				isRecording ?
 				"recording..." :
+				mediaLabel ?
+				x.text || mediaLabel :
 				x.last_message || x.reaction || "Media / Attachment";
+			
+			const msgHtml = mediaIcon ?
+				`<i class="fa-solid ${mediaIcon}"></i> ${escapeHtml(msg)}` :
+				escapeHtml(msg);
 			
 			const lastMessageIsMine = isOutgoingMessage(x.last_from_me);
 			const isGroup = x.jid?.endsWith("@g.us");
@@ -2663,8 +2926,7 @@ function renderConversationsList() {
 			
                        return `
                        <div
-                           title="${previewPrefix + ': ' + msg}"
-                           onclick="${selectionMode ? `toggleConversationSelection('${escapeAttr(key)}')` : `openConversation('${escapeAttr(key)}')`}"
+                           title="${previewPrefix + ': ' + msg}" ${x.phone ? `data-phone="${x.phone}"` : ''} onclick="${selectionMode ? `toggleConversationSelection('${escapeAttr(key)}')` : `openConversation('${escapeAttr(key)}', '${x.phone}')`}"
                            oncontextmenu="showConversationMenu(event, '${escapeAttr(key)}'); return false"
                            class="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all relative group ${active ? "bg-anon-panel border border-anon-accent/40 shadow-lg shadow-emerald-950/20" : "hover:bg-anon-panel/60 border border-transparent"}"
                        >
@@ -2706,7 +2968,7 @@ function renderConversationsList() {
                    
                                    <span class="truncate privacy-sensitive ${String(previewPrefix).startsWith("~") ? "italic" : ""} ${isTyping || isRecording ? "text-anon-accent" : ""}">
                                        ${!isGroup && !isStatus && !isChannel ? "" : previewPrefix + " :"}
-                                       <span style="font-style:normal;">${escapeHtml(msg)}</span>
+                                       <span style="font-style:normal;">${msgHtml}</span>
                                    </span>
                    
                                    ${unreadCount ? `
@@ -2730,18 +2992,21 @@ function renderConversationsList() {
 		count.textContent = `${selectedConversations.size} selected`
 }
 
-async function openConversation(key) {
+async function openConversation(key, phone='') {
 	if (!key) return;
 	let conversation = conversations.find(c => c.conversation_key === key) || {
 		conversation_key: key,
 		push_name: key,
-		jid: key
+		jid: key,
+
 	};
 	
 	if (activeThread?.conversation_key !== key)
 		clearReplyTarget();
 	
+
 	activeThread = {
+		phone,
 		conversation_key: key,
 		readOnly: conversation.jid === "status@broadcast",
 		messages: [],
@@ -2754,6 +3019,7 @@ async function openConversation(key) {
 		const readIndex = conversations.findIndex(item => item.conversation_key === key);
 		if (readIndex >= 0) conversations[readIndex].unread_count = 0;
 		renderConversationsList();
+		updateContactButton(activeThread.phone)
 	}
 	updateComposerState();
 	
@@ -2776,6 +3042,8 @@ async function openConversation(key) {
 		el("mainChatArea")
 			.classList.add("flex");
 	}
+
+
 	
 	renderConversationsList();
 	el("emptyChatState")
@@ -2866,108 +3134,110 @@ async function openConversation(key) {
                 </div>
             </div>`;
 	
-	try {
-		const r = await fetch(`/api/conversations/${encodeURIComponent(key)}?limit=${String(key).includes('status:status') ? '1000' : '20'}`);
-		if (!r.ok) throw Error();
-		const d = await r.json();
-		
-		if (d.chat_name) {
-			conversation = {
-				...conversation,
-				chat_name: d.chat_name
-			};
-			el("chatTitle")
-				.innerText = String(d.chat_name).length > 40 ?   String(d.chat_name).slice(0, 40) + '...' :  String(d.chat_name);
+			try{
+				const r=await fetch(`/api/conversations/${encodeURIComponent(key)}?limit=${String(key).includes("status:status")?"1000":"20"}`)
+				if(!r.ok)throw Error()
+				const d=await r.json()
 			
-			const namedIndex = conversations.findIndex(
-				item => item.conversation_key === key
-			);
+				if(d.chat_name){
+					conversation={...conversation,chat_name:d.chat_name}
+					el("chatTitle").innerText=String(d.chat_name).length>40?String(d.chat_name).slice(0,40)+"...":String(d.chat_name)
 			
-			if (namedIndex >= 0)
-				conversations[namedIndex].chat_name = d.chat_name;
-		}
-		
-		const refreshedAvatar = isStatus ?
-			"" :
-			d.chat_avatar ||
-			d.avatar ||
-			d.sender_avatar ||
-			"";
-		
-		if (refreshedAvatar) {
-			const header = el("chatHeaderIcon");
+					const namedIndex=conversations.findIndex(item=>item.conversation_key===key)
+					if(namedIndex>=0)conversations[namedIndex].chat_name=d.chat_name
+				}
 			
-			if (header?.parentElement) {
-				const refreshedAvatarPayload = escapeAttr(JSON.stringify({
-					session: conversation.session_id || conversation.session_phone || "",
-					jid: conversation.jid || "",
-					title: getConversationTitle(conversation)
-				}));
-				header.parentElement.innerHTML = `<img src="${escapeAttr(refreshedAvatar)}" class="w-10 h-10 rounded-full object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" id="chatHeaderIcon" onclick='openAvatarModal(${refreshedAvatarPayload}, event)'><span id="chatPresenceDot" class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-slate-500 border-2 border-anon-sidebar" title="Offline"></span>`;
+				const refreshedAvatar=isStatus?"":d.chat_avatar||d.avatar||d.sender_avatar||""
+			
+				if(refreshedAvatar){
+					const header=el("chatHeaderIcon")
+			
+					if(header?.parentElement){
+						const refreshedAvatarPayload=escapeAttr(JSON.stringify({
+							session:conversation.session_id||conversation.session_phone||"",
+							jid:conversation.jid||"",
+							title:getConversationTitle(conversation)
+						}))
+			
+						header.parentElement.innerHTML=`<img src="${escapeAttr(refreshedAvatar)}" class="w-10 h-10 rounded-full object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" id="chatHeaderIcon" onclick='openAvatarModal(${refreshedAvatarPayload}, event)'><span id="chatPresenceDot" class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-slate-500 border-2 border-anon-sidebar" title="Offline"></span>`
+					}
+			
+					setPresenceDot(conversation)
+			
+					const conversationIndex=conversations.findIndex(item=>item.conversation_key===key)
+			
+					if(conversationIndex>=0){
+						conversations[conversationIndex]={
+							...conversations[conversationIndex],
+							avatar:d.avatar||refreshedAvatar,
+							chat_avatar:d.chat_avatar||refreshedAvatar,
+							sender_avatar:d.sender_avatar||conversations[conversationIndex].sender_avatar
+						}
+					}
+				}
+			
+				const messages=d.messages||[]
+			
+				if(isStatus){
+					const statuses=messages.filter(m=>m.is_status&&!m.reaction)
+					const reactions=messages.filter(m=>m.is_status&&m.reaction&&m.reaction_msg_id)
+			
+					for(const status of statuses){
+						status.reactions=reactions.filter(r=>r.reaction_msg_id===status.msg_id)
+					}
+			
+					activeThread.messages=statuses.concat(messages.filter(m=>!m.is_status))
+				}else{
+					activeThread.messages=messages
+				}
+			
+				activeThread.hasMore=d.has_more===true
+				activeThread.nextBefore=Number(d.next_before||0)
+			
+				renderConversationsList()
+				renderChatThread(activeThread.messages)
+			
+				const pendingMessages=await getPendingMessages()
+				const conversationPending=pendingMessages.filter(message=>message.conversation_key===key)
+			
+				for(const message of conversationPending){
+					createUploadingMessage(JSON.stringify(message),true)
+				}
+			
+				requestAnimationFrame(()=>{
+					const container=el("chatMessagesContainer")
+					if(container)container.scrollTop=container.scrollHeight
+				})
+			
+			}catch{
+				const now=Math.floor(Date.now()/1000)
+			
+				const mockMsgs=[
+					{
+						msg_id:"m1",
+						from_me:0,
+						sender_name:conversation.push_name||"User",
+						text:"What's wrong?",
+						created_at:now-300
+					},
+					{
+						msg_id:"m2",
+						from_me:1,
+						sender_name:"Admin Bot",
+						text:"Connection error",
+						created_at:now-240
+					},
+					{
+						msg_id:"m3",
+						from_me:0,
+						sender_name:conversation.push_name||"User",
+						text:"Ooooh... okay",
+						created_at:now-120
+					}
+				]
+			
+				renderChatThread(mockMsgs)
 			}
-			setPresenceDot(conversation);
-			
-			const conversationIndex = conversations.findIndex(
-				item => item.conversation_key === key
-			);
-			
-			if (conversationIndex >= 0) {
-				conversations[conversationIndex] = {
-					...conversations[conversationIndex],
-					avatar: d.avatar || refreshedAvatar,
-					chat_avatar: d.chat_avatar || refreshedAvatar,
-					sender_avatar: d.sender_avatar || conversations[conversationIndex].sender_avatar
-				};
-			}
-		}
-		
-		activeThread.messages=d.messages||[];
-		activeThread.hasMore=d.has_more===true;
-		activeThread.nextBefore=Number(d.next_before||0);
-
-		renderConversationsList();
-		renderChatThread(activeThread.messages);
-
-		const pendingMessages=await getPendingMessages();
-		const conversationPending=pendingMessages.filter(
-			message=>message.conversation_key===key
-		);
-
-		for(const message of conversationPending){
-			createUploadingMessage(JSON.stringify(message), true);
-		}
-
-		requestAnimationFrame(()=>{
-			const container=el("chatMessagesContainer");
-			if(container)container.scrollTop=container.scrollHeight;
-		});
-	} catch {
-		const now = Math.floor(Date.now() / 1000);
-		const mockMsgs = [
-			{
-				msg_id: "m1",
-				from_me: 0,
-				sender_name: conversation.push_name || "User",
-				text: "What's wrong?",
-				created_at: now - 300
-			},
-			{
-				msg_id: "m2",
-				from_me: 1,
-				sender_name: "Admin Bot",
-				text: "Connection error",
-				created_at: now - 240
-			},
-			{
-				msg_id: "m3",
-				from_me: 0,
-				sender_name: conversation.push_name || "User",
-				text: "Ooooh... okay",
-				created_at: now - 120
-			}
-                ];
-		renderChatThread(mockMsgs);
-	}
 }
 
 async function loadOlderMessages() {
@@ -3148,7 +3418,6 @@ async function acceptIncomingCall(){
         const data=await r.json()
         if(!r.ok)throw new Error(data.error||"Could not accept call")
 
-        console.log("[CALL ACCEPTED]",data)
         hideIncomingCall()
     }catch(err){
         console.error("[CALL ACCEPT]",err)
@@ -3172,7 +3441,6 @@ async function rejectIncomingCall(){
         const data=await r.json()
         if(!r.ok)throw new Error(data.error||"Could not reject call")
 
-        console.log("[CALL REJECTED]",data)
         hideIncomingCall()
     }catch(err){
         console.error("[CALL REJECT]",err)
@@ -3242,131 +3510,192 @@ function scrollToNewMessages() {
 	clearNewMessagesIndicator();
 }
 
-function renderNormalMessages(messages) {
-	const reactionsMap = new Map();
-	
-	messages.forEach(m => {
-		if (m.reaction_msg_id && m.reaction) {
-			if (!reactionsMap.has(m.reaction_msg_id)) reactionsMap.set(m.reaction_msg_id, []);
-			reactionsMap.get(m.reaction_msg_id)
-				.push(m);
-		}
-	});
-	
-	return messages.filter(m => !m.reaction_msg_id)
-		.map(m => {
-			const self = Number(m.from_me) === 1;
-			const sender = m.push_name || m.sender_name || m.sender || "Contact";
-			const time = m.created_at ?
-				new Date(Number(m.created_at) * 1000)
-				.toLocaleTimeString([], {
-					hour: "2-digit",
-					minute: "2-digit"
-				}) :
-				"";
-			
-			const quoted = m.quoted_text && m.quoted_sender ?
-				`<div class="mb-2 px-3 py-1.5 rounded-md bg-black/30 border-l-2 border-anon-accent cursor-pointer" quoted_msg_id="msg-${m.quoted_msg_id}" onclick="scrollToMsg('msg-${m.quoted_msg_id}')">
-                        <div class="text-[9px] font-bold text-anon-accent truncate">${escapeHtml(m.quoted_sender_name||"Replied Message")}</div>
-                        <div class="text-[10px] text-slate-300 line-clamp-2">${escapeHtml(m.quoted_text)}</div>
-                      </div>` :
-				"";
-			
-			let media = "";
-			if (m.media_type ) {
-				if (m.media_type === "image" || m.mime_type?.startsWith("image/") || m.media_type=== "sticker") {
-					media = `<div class="mb-1.5 overflow-hidden rounded-lg border border-white/10">
-                            <img src="${escapeHtml(m.media_path)}" onerror="this.onclick='showToast();return;'" class="w-full max-h-60 object-cover cursor-pointer hover:scale-105 transition-transform" ${m.media_type =="sticker"?'style="max-width:120px;max-height:120px"':""} onclick="openMediaModal('${escapeHtml(m.media_path)}', '${m.media_type == "sticker" ? 'sticker' : 'image'}')">
-                        </div>`;
-				} else if (m.media_type === "video" || m.mime_type?.startsWith("video/")) {
-					media = `<div class="mb-1.5 overflow-hidden rounded-lg border border-white/10 relative cursor-pointer group" onclick="openMediaModal('${escapeHtml(m.media_path)}','video','${escapeHtml(m.mime_type||"video/mp4")}')">
-                            <video class="w-full max-h-60 bg-black/40 pointer-events-none"><source src="${escapeHtml(m.media_path)}"></video>
-                            <div class="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-all"><i class="fa-solid fa-play text-white text-2xl drop-shadow-md"></i></div>
-                        </div>`;
-				} else if (m.media_type === "document" || m.mime_type?.startsWith("application/")) {
-					media = `<a href="${escapeHtml(m.media_path)}" target="_blank" download="${escapeHtml(m.file_name||"Document")}" class="flex items-center gap-2.5 p-2.5 mb-1.5 bg-black/30 rounded-lg border border-slate-700/50 hover:border-anon-accent transition-colors">
-                            <i class="fa-solid fa-file-lines text-anon-accent text-lg"></i>
-                            <span class="text-xs text-slate-200 truncate flex-1 font-mono">${escapeHtml(m.file_name||"Document")}</span>
-                            <i class="fa-solid fa-download text-xs text-slate-400"></i>
-                        </a>`;
-				}
-			}
-			
-			let linkPreview = "";
-			if (m.link_url) {
-				linkPreview = `<a href="${escapeAttr(m.link_url)}" target="_blank" rel="noopener noreferrer" class="block mb-2 overflow-hidden rounded-lg border border-slate-700/60 bg-black/20 hover:border-anon-accent/60 transition-colors">
-                        ${m.link_image?`<img src="${escapeAttr(m.link_image)}" onerror="this.style.display='none'" class="w-full  max-h-40 object-cover">`:""}
-                        <div class="p-2.5">
-                            ${m.link_site_name?`<div class="text-[9px] uppercase tracking-wider text-anon-accent font-bold mb-1">${escapeHtml(m.link_site_name)}</div>`:""}
-                            ${m.link_title?`<div class="text-xs font-bold text-slate-100 line-clamp-2">${escapeHtml(m.link_title)}</div>`:""}
-                            ${m.link_description?`<div class="text-[10px] text-slate-400 max-w-[250px] mt-1 line-clamp-2">${escapeHtml(m.link_description)}</div>`:""}
-                            <div class="text-[9px] text-anon-muted mt-1 truncate">${escapeHtml(m.link_url)}</div>
-                        </div>
-                    </a>`;
-			}
-			
-			const list = reactionsMap.get(m.msg_id) || [];
-			const groups = {};
-			list.forEach(r => {
-				if (!groups[r.reaction]) groups[r.reaction] = [];
-				groups[r.reaction].push(r);
-			});
-			
-			const reactionHtml = Object.entries(groups)
-				.map(([emoji, rList]) => {
-					const data = JSON.stringify(rList)
-						.replace(/\\/g, "\\\\")
-						.replace(/'/g, "&#39;");
-					return `<button onclick='openReactionModal(${data},${JSON.stringify(emoji)})' class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/90 border border-anon-border text-xs hover:border-anon-accent transition-all">${escapeHtml(emoji)}${rList.length>1?`<span class="text-[9px] text-anon-muted">${rList.length}</span>`:""}</button>`;
-				})
-				.join("");
-			
-			const replyPayload = m.msg_id ?
-				JSON.stringify({
-					id: String(m.msg_id),
-					senderName : m.sender_name || m.incoming_user_name || m.push_name || m.other_user_name || m.chat_name || 'Contactsssssss',
-					sender,
-					text: m.text || (m.media_type ? `[${m.media_type}]` : "Message")
-				})
-				.replace(/"/g, "&quot;") :
-				"";
-			
+function renderNormalMessages(messages){
+    const reactionsMap=new Map();
+    messages.forEach(m=>{
+        if(m.reaction_msg_id&&m.reaction){
+            if(!reactionsMap.has(m.reaction_msg_id))reactionsMap.set(m.reaction_msg_id,[]);
+            reactionsMap.get(m.reaction_msg_id).push(m);
+        }
+    });
 
-			console.log(m, '======================================')
-			const replyAction = replyPayload ?
-				`<button type="button" onclick="selectReplyMessage(${replyPayload})" class="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-anon-accent" title="Reply"><i class="fa-solid fa-reply"></i></button>` :
-				"";
-			
-			const messagePayload = escapeAttr(JSON.stringify({
-				id: m.msg_id || m.id || "",
-				msg_id: m.msg_id || "",
-				sender,
-				sender_jid: m.sender || "",
-				text: m.text || (m.media_type ? `[${m.media_type}]` : "Message"),
-				from_me: self ? 1 : 0,
-				created_at: m.created_at || "",
-				jid: m.jid || "",
-				conversation_key: m.conversation_key || activeThread?.conversation_key || "",
-				quoted_text: m.quoted_text || ""
-			}));
-			
-			return `<div class="flex flex-col w-full ${self?"items-end":"items-start"}" id="msg-${m.msg_id}">
-                    <div class="max-w-[85%] sm:max-w-[70%]">
-                        <div class="message-bubble privacy-sensitive group p-2 text-xs leading-relaxed shadow-md rounded-xl ${self?"bg-anon-msgOut text-slate-100 rounded-tr-none border border-emerald-600/30":"bg-anon-msgIn text-slate-100 rounded-tl-none border border-slate-700/40"}" data-swipe-reply="true" data-swipe-direction="${self?"left":"right"}" data-reply-payload="${escapeAttr(replyPayload)}" oncontextmenu='openMessageContextMenu(${messagePayload},event);return false;'>
-                            ${!self?`<div class="text-[10px] font-bold text-anon-accent mb-1 truncate">${escapeHtml(sender)}</div>`:""}
-                            ${quoted}${linkPreview}${media}
-                            <div class="break-words font-sans text-slate-100" style="word-break:break-all max-width:500px">${renderSafeMessage(m.text)}</div>
-                            <div class="flex justify-end items-center gap-1.5 mt-1 text-[10px] text-slate-400 font-mono">
-                                ${replyAction}
-                                <span>${time}</span>
-                                ${self?`<i class="fa-solid fa-check-double text-anon-accent text-[10px]"></i>`:""}
+    const list=messages.filter(m=>!m.reaction_msg_id);
+
+    return list.map((m,i)=>{
+        const self=Number(m.from_me)===1;
+        const sender=m.push_name||m.sender_name||m.sender||"Contact";
+		const isMedia=["image","sticker"].includes(m.media_type);
+		const prev=list[i-1];
+		
+		const samePrev=prev&&
+			Number(prev.from_me)===Number(m.from_me)&&
+			(prev.sender||"")===(m.sender||"")&&
+			prev.media_type===m.media_type;
+		
+		if(isMedia&&!samePrev){
+			const group=[];
+		
+			for(let j=i;j<list.length;j++){
+				const x=list[j];
+		
+				if(
+					Number(x.from_me)!==Number(m.from_me)||
+					(x.sender||"")!==(m.sender||"")||
+					x.media_type!==m.media_type
+				)break;
+		
+				group.push(x);
+			}
+
+
+            if(group.length>1){
+                const time=m.created_at?
+                    new Date(Number(m.created_at)*1000).toLocaleTimeString([],{
+                        hour:"2-digit",minute:"2-digit"
+                    }):"";
+
+                return`
+                    <div class="flex flex-col w-full ${self?"items-end":"items-start"}">
+                        <div class="max-w-[85%] sm:max-w-[70%]">
+                            <div class="message-bubble p-2 rounded-xl ${self?"bg-anon-msgOut rounded-tr-none":"bg-anon-msgIn rounded-tl-none"}" style="max-width:400px">
+                                ${!self?`<div class="hover:underline hover:underline-anon-accent cursor-pointer text-[10px] font-bold text-anon-accent mb-1 truncate" onclick="getUserAbout('${m.sender}')">${escapeHtml(sender)}</div>`:""}
+                                <div class="grid grid-cols-2 gap-1">
+									${group.slice(0,4).map((x,j)=>{
+    const more=group.length-4;
+    const sticker=x.media_type==="sticker";
+
+    return`
+        <div class="relative overflow-hidden rounded-lg bg-black/20">
+            <img src="${escapeAttr(x.media_path)}"
+                class="w-full h-32 object-cover cursor-pointer"
+                ${sticker?'style="object-fit:contain;padding:6px"':""}
+                onclick="openMediaModal('${escapeAttr(x.media_path)}','${sticker?"sticker":"image"}')">
+
+            ${j===3&&more>0?`
+                <div class="absolute inset-0 bg-black/60 flex items-center justify-center pointer-events-none">
+                    <span class="text-white text-lg font-bold">+${more}</span>
+                </div>
+            `:""}
+        </div>
+    `;
+}).join("")}
+                               </div>
+                                <div class="text-right text-[10px] text-slate-400 mt-1">${time}</div>
                             </div>
                         </div>
-                        ${reactionHtml?`<div class="flex flex-wrap gap-1 mt-1 ${self?"justify-end mr-1":"ml-1"}">${reactionHtml}</div>`:""}
+                    </div>`;
+            }
+        }
+
+        if(isMedia&&samePrev)return"";
+
+        const time=m.created_at?
+            new Date(Number(m.created_at)*1000).toLocaleTimeString([],{
+                hour:"2-digit",minute:"2-digit"
+            }):"";
+
+        const quoted=m.quoted_text&&m.quoted_sender?
+            `<div class="mb-2 px-3 py-1.5 rounded-md bg-black/30 border-l-2 border-anon-accent cursor-pointer" onclick="scrollToMsg('msg-${m.quoted_msg_id}')">
+                <div class="text-[9px] font-bold text-anon-accent truncate">${escapeHtml(m.quoted_sender_name||"Replied Message")}</div>
+                <div class="text-[10px] text-slate-300 line-clamp-2">${escapeHtml(m.quoted_text).slice(0,90)}</div>
+            </div>`:"";
+
+        let media="";
+        if(m.media_type==="image"||m.media_type==="sticker"||m.mime_type?.startsWith("image/")){
+            media=`<div class="mb-1.5 overflow-hidden rounded-xs" style="width:fit-content;margin:auto">
+                <img src="${escapeHtml(m.media_path)}" class="w-full max-h-60 object-cover cursor-pointer"
+                    ${m.media_type==="sticker"?'style="max-width:120px;max-height:120px;object-fit:contain"':""}
+                    onclick="openMediaModal('${escapeHtml(m.media_path)}','${m.media_type==="sticker"?"sticker":"image"}')">
+            </div>`;
+        }else if(m.media_type==="video"||m.mime_type?.startsWith("video/")){
+            media=`<div class="mb-1.5 relative cursor-pointer" onclick="openMediaModal('${escapeHtml(m.media_path)}','video','${escapeHtml(m.mime_type||"video/mp4")}')">
+                <video class="w-full max-h-60"><source src="${escapeHtml(m.media_path)}"></video>
+                <div class="absolute inset-0 flex items-center justify-center bg-black/30"><i class="fa-solid fa-play text-white text-2xl"></i></div>
+            </div>`;
+        }else if(m.media_type==="document"||m.mime_type?.startsWith("application/")){
+            media=`<a href="${escapeHtml(m.media_path)}" target="_blank" download="${escapeHtml(m.file_name||"Document")}" class="flex items-center gap-2.5 p-2.5 mb-1.5 bg-black/30 rounded-lg border border-slate-700/50">
+                <i class="fa-solid fa-file-lines text-anon-accent text-lg"></i>
+                <span class="text-xs text-slate-200 truncate flex-1">${escapeHtml(m.file_name||"Document")}</span>
+                <i class="fa-solid fa-download text-xs"></i>
+            </a>`;
+        }
+
+        let linkPreview="";
+        if(m.link_url){
+            linkPreview=`<a href="${escapeAttr(m.link_url)}" target="_blank" rel="noopener noreferrer" class="block mb-2 overflow-hidden rounded-lg border border-slate-700/60">
+                ${m.link_image?`<img src="${escapeAttr(m.link_image)}" class="w-full max-h-40 object-cover">`:""}
+                <div class="p-2.5">
+                    ${m.link_site_name?`<div class="text-[9px] uppercase text-anon-accent font-bold">${escapeHtml(m.link_site_name)}</div>`:""}
+                    ${m.link_title?`<div class="text-xs font-bold text-slate-100">${escapeHtml(m.link_title)}</div>`:""}
+                    ${m.link_description?`<div class="text-[10px] text-slate-400 mt-1">${escapeHtml(m.link_description)}</div>`:""}
+                    <div class="text-[9px] text-anon-muted mt-1 truncate">${escapeHtml(m.link_url)}</div>
+                </div>
+            </a>`;
+        }
+
+        const groups={};
+        (reactionsMap.get(m.msg_id)||[]).forEach(r=>{
+            if(!groups[r.reaction])groups[r.reaction]=[];
+            groups[r.reaction].push(r);
+        });
+
+        const reactionHtml=Object.entries(groups).map(([emoji,rList])=>{
+            const data=JSON.stringify(rList).replace(/\\/g,"\\\\").replace(/'/g,"&#39;");
+            return`<button onclick='openReactionModal(${data},${JSON.stringify(emoji)})' class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/90 border border-anon-border text-xs">${escapeHtml(emoji)}${rList.length>1?`<span class="text-[9px] text-anon-muted">${rList.length}</span>`:""}</button>`;
+        }).join("");
+
+        const replyPayload=m.msg_id?JSON.stringify({
+            id:String(m.msg_id),
+            senderName:m.sender_name||m.push_name||m.sender||"Contact",
+            sender,
+            text:m.text||(m.media_type?`[${m.media_type}]`:"Message")
+        }).replace(/"/g,"&quot;"):"";
+
+        const replyAction=replyPayload?
+            `<button type="button" onclick="selectReplyMessage(${replyPayload})" class="ml-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-anon-accent" title="Reply"><i class="fa-solid fa-reply"></i></button>`:"";
+
+        const messagePayload=escapeAttr(JSON.stringify({
+            id:m.msg_id||m.id||"",
+            msg_id:m.msg_id||"",
+            sender,
+            sender_jid:m.sender||"",
+            text:m.text||(m.media_type?`[${m.media_type}]`:"Message"),
+            from_me:self?1:0,
+            created_at:m.created_at||"",
+            jid:m.jid||"",
+            conversation_key:m.conversation_key||activeThread?.conversation_key||"",
+            quoted_text:m.quoted_text||""
+        }));
+
+        const newsletterInvite=m.newsletter_jid?`
+            <div class="mt-2 rounded-lg border border-emerald-600/30 bg-slate-900/40 p-2">
+                <div class="text-xs text-slate-300 mb-2">${escapeHtml(m.text)}</div>
+                <button type="button" onclick="acceptNewsletter('${escapeAttr(m.newsletter_jid)}')" class="w-full rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">
+                    <i class="fa-solid fa-user-plus mr-1"></i>Accept
+                </button>
+            </div>`:"";
+
+        return`
+            <div class="flex flex-col w-full ${self?"items-end":"items-start"}" id="msg-${m.msg_id}">
+                <div class="max-w-[85%] sm:max-w-[70%]">
+                    <div class="message-bubble privacy-sensitive group p-2 text-xs leading-relaxed shadow-md rounded-xl ${self?"bg-anon-msgOut rounded-tr-none border border-emerald-600/30":"bg-anon-msgIn rounded-tl-none border border-slate-700/40"}"
+                        data-swipe-reply="true"
+                        data-swipe-direction="${self?"left":"right"}"
+                        data-reply-payload="${escapeAttr(replyPayload)}"
+                        oncontextmenu='openMessageContextMenu(${messagePayload},event);return false;'
+                        style="max-width:400px">
+                        ${!self?`<div class=" cursor-pointer hover:underline hover:underline-anon-accent text-[10px] font-bold text-anon-accent mb-1 truncate"  onclick="getUserAbout('${m.sender}')">${escapeHtml(sender)}</div>`:""}
+                        ${quoted}${linkPreview}${media}${newsletterInvite}
+                        ${!m.newsletter_jid?`<div class="break-words font-sans text-slate-100" style="word-break:break-all;max-width:500px">${renderSafeMessage(m.text)}</div>`:""}
+                        <div class="flex justify-end items-center gap-1.5 mt-1 text-[10px] text-slate-400 font-mono">
+                            ${replyAction}<span>${time}</span>
+                            ${self?`<i class="fa-solid fa-check-double text-anon-accent text-[10px]"></i>`:""}
+                        </div>
                     </div>
-                </div>`;
-		})
-		.join("");
+                    ${reactionHtml?`<div class="flex flex-wrap gap-1 mt-1 ${self?"justify-end mr-1":"ml-1"}">${reactionHtml}</div>`:""}
+                </div>
+            </div>`;
+    }).join("");
 }
 
 function scrollToMsg(id) {
@@ -3383,6 +3712,30 @@ function scrollToMsg(id) {
 } else{
 	showToast('Message not found', 'error')
 }
+}
+
+
+async function acceptNewsletter(newsletterJid){
+    try{
+        const res=await fetch("/api/newsletter/accept",{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify({
+                newsletter_jid:newsletterJid
+            })
+        })
+
+        const data=await res.json()
+
+        if(!res.ok)
+            throw new Error(data.error||"Failed to accept invitation")
+
+        showToast("Newsletter admin invitation accepted","success")
+    }catch(e){
+        showToast(e.message,"error")
+    }
 }
 
 function prependMessagesToChat(messages) {
@@ -3524,12 +3877,14 @@ async function fetchContacts() {
 		if (!data.success || !data.contacts) return []
 		contacts = data.contacts
 		localStorage.setItem('contacts', JSON.stringify(contacts))
+        renderContacts()
 		return contacts
 	} catch (err) {
 		console.error(err.message)
 		return []
 	}
 }
+
 
 async function postStatus(){
     const text=document.getElementById("statusText").value.trim()
@@ -3593,6 +3948,69 @@ async function postStatus(){
     }
 }
 
+async function getUserAbout(jid){
+    openModal("userAboutModal")
+
+    const body=document.querySelector("#userAboutModal .overflow-y-auto")
+    body.innerHTML=`<div class="flex items-center justify-center py-20 text-anon-muted"><i class="fa-solid fa-spinner fa-spin text-2xl"></i></div>`
+
+    try{
+        const res=await fetch(`/api/user/about?jid=${encodeURIComponent(jid)}`)
+        const data=await res.json()
+
+        if(!res.ok||!data.success)throw new Error(data.error||"Failed to load user")
+
+        body.innerHTML=` <div class="flex justify-center">  <img src=" ${data.profile_picture ? escapeAttr(data.profile_picture) : '/icons/dp.png'}" class="w-28 h-28 rounded-full object-cover border border-anon-border">
+                </div>
+            
+            <div class="text-center">
+                <h4 class="text-lg font-bold text-anon-text">${escapeHtml(data.name||"Unknown")}</h4>
+                ${data.push_name?`<div class="text-xs text-anon-muted mt-1">${escapeHtml(data.push_name)}</div>`:""}
+                ${data.phone?`<div class="text-xs text-anon-muted mt-1">${escapeHtml(data.phone)}</div>`:""}
+            </div>
+
+            ${data.about?`
+                <div class="bg-anon-panel rounded-xl p-4">
+                    <div class="text-[10px] uppercase text-anon-muted mb-2">About</div>
+                    <div class="text-sm text-anon-text whitespace-pre-wrap">${escapeHtml(data.about)}</div>
+                </div>
+            `:""}
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-anon-panel rounded-xl p-3">
+                    <div class="text-[10px] uppercase text-anon-muted">WhatsApp</div>
+                    <div class="text-sm font-semibold text-anon-text mt-1">${data.exists?"Available":"Not found"}</div>
+                </div>
+                <div class="bg-anon-panel rounded-xl p-3">
+                    <div class="text-[10px] uppercase text-anon-muted">Presence</div>
+                    <div class="text-sm font-semibold text-anon-text mt-1">${escapeHtml(data.presence||"Unknown")}</div>
+                </div>
+            </div>
+
+            ${data.business?`
+                <div class="bg-anon-panel rounded-xl p-4 space-y-2">
+                    <div class="text-[10px] uppercase text-anon-muted">Business</div>
+                    ${data.business.description?`<div class="text-sm text-anon-text">${escapeHtml(data.business.description)}</div>`:""}
+                    ${data.business.category?`<div class="text-xs text-anon-muted">${escapeHtml(data.business.category)}</div>`:""}
+                    ${data.business.address?`<div class="text-xs text-anon-muted">${escapeHtml(data.business.address)}</div>`:""}
+                    ${data.business.email?`<div class="text-xs text-anon-muted">${escapeHtml(data.business.email)}</div>`:""}
+                    ${data.business.website?`<div class="text-xs text-anon-muted">${escapeHtml(data.business.website)}</div>`:""}
+                </div>
+            `:""}
+
+            <div class="bg-anon-panel rounded-xl p-4 space-y-2">
+                <div class="text-[10px] uppercase text-anon-muted mb-2">WhatsApp Data</div>
+                <div class="flex justify-between text-xs gap-4"><span class="text-anon-muted">JID</span><span class="text-anon-text break-all">${escapeHtml(data.jid||"")}</span></div>
+                <div class="flex justify-between text-xs gap-4"><span class="text-anon-muted">LID</span><span class="text-anon-text break-all">${escapeHtml(data.lid||"Not available")}</span></div>
+                <div class="flex justify-between text-xs"><span class="text-anon-muted">Verified</span><span class="text-anon-text">${data.verified?"Yes":"No"}</span></div>
+            </div>
+        `
+    }catch(error){
+        console.error(error)
+        body.innerHTML=`<div class="flex flex-col items-center justify-center py-20 text-anon-muted"><i class="fa-solid fa-circle-exclamation text-3xl"></i><div class="text-sm mt-3">${escapeHtml(error.message||"Failed to load user")}</div></div>`
+    }
+}
+
 function isStatusViewed(item) {
 	return Boolean(item.read_at || viewedStatusesSet.has(item.id));
 }
@@ -3606,8 +4024,86 @@ function markStatusAsViewed(item) {
 	}
 }
 
+async function loadApiKeys(){
+	const list=document.getElementById("apiKeysList")
+	list.innerHTML='<div class="text-center py-6 text-anon-muted text-sm"><i class="fa-solid fa-spinner fa-spin"></i></div>'
+	try{
+		const r=await fetch("/api/keys")
+		const d=await r.json()
+		if(!d.success||!d.keys?.length){
+			list.innerHTML='<div class="text-center py-6 text-anon-muted text-sm">No API keys</div>'
+			return
+		}
+		list.innerHTML=d.keys.map(k=>`
+	<div class="bg-anon-panel border border-anon-border rounded-xl p-3 mb-2 flex items-center justify-between gap-3">
+		<div class="min-w-0">
+			<div class="flex items-center gap-2">
+				<span class="text-sm font-semibold text-anon-text">${escapeHtml(k.name||"API Key")}</span>
+				<span class="text-[10px] px-2 py-0.5 rounded-full ${k.active?"bg-green-500/10 text-green-400":"bg-red-500/10 text-red-400"}">
+					${k.active?"Active":"Revoked"}
+				</span>
+			</div>
+			<div class="text-xs text-anon-muted mt-1">
+				<i class="fa-solid fa-globe mr-1"></i>${escapeHtml(k.domain)}
+			</div>
+		</div>
+		${k.active?`
+			<button onclick="deleteApiKey(${k.id})" class="w-8 h-8 rounded-lg text-red-400 hover:bg-red-500/10">
+				<i class="fa-solid fa-trash"></i>
+			</button>
+		`:``}
+	</div>
+`).join("")
+	}catch{
+		list.innerHTML='<div class="text-center py-6 text-red-400 text-sm">Failed to load</div>'
+	}
+}
+
+async function deleteApiKey(id){
+	if(!confirm("Delete this API key?"))return
+
+	const r=await fetch(`/api/keys/${id}`,{
+		method:"DELETE"
+	})
+
+	const d=await r.json()
+
+	if(!r.ok||!d.success){
+		alert(d.error||"Failed to delete API key")
+		return
+	}
+
+	loadApiKeys()
+}
+
+async function createApiKey(){
+	const name=document.getElementById("apiKeyName").value.trim()
+	const domain=document.getElementById("apiKeyDomain").value.trim()
+	if(!domain)return
+	const r=await fetch("/api/keys",{
+		method:"POST",
+		headers:{"Content-Type":"application/json"},
+		body:JSON.stringify({name,domain})
+	})
+	const d=await r.json()
+	if(!r.ok||!d.success)return alert(d.error||"Failed")
+	prompt("Copy this API key. It will not be shown again:",d.key)
+	document.getElementById("apiKeyName").value=""
+	document.getElementById("apiKeyDomain").value=""
+	loadApiKeys()
+}
+
+async function revokeApiKey(id){
+	if(!confirm("Revoke this API key?"))return
+	const r=await fetch(`/api/keys/${id}`,{method:"DELETE"})
+	const d=await r.json()
+	if(!r.ok||!d.success)return alert(d.error||"Failed")
+	loadApiKeys()
+}
+
 function renderChatThread(messages, isLoading = false) {
 	window.currentChatMessages = messages;
+	statusUserGroups = [];
 	const container = el("chatMessagesContainer");
 	if (!container) return;
 	
@@ -3615,10 +4111,10 @@ function renderChatThread(messages, isLoading = false) {
 	const statuses = sorted.filter(m => m.jid === "status@broadcast");
 	const normal = sorted.filter(m => m.jid !== "status@broadcast");
 	
-	const isStatusContext = activeThread?.jid === "status@broadcast" ||
+	const isStatusContext =  activeThread?.jid === "status@broadcast" ||
 		activeThread?.conversation_key === "status@broadcast" ||
 		activeThread?.type === "status" ||
-		statuses.length > 0;
+		statuses.length > 0 ;
 	
 	if (!isStatusContext) {
 		container.innerHTML = renderNormalMessages(normal);
@@ -3655,55 +4151,61 @@ function renderChatThread(messages, isLoading = false) {
                 </div>
             `;
 	
-	const renderUserList = (userGroups) => userGroups.map(({
-			uid,
-			items,
-			latestTime
-		}) => {
-			const senderName = items[0].sender_name || items[0].push_name || items[0].sender || uid;
-			const avatarPic = items[0].img || items[0].avatar || items[0].profile_pic;
-			const formattedTime = latestTime ? new Date(latestTime * 1000)
-				.toLocaleTimeString([], {
-					hour: "2-digit",
-					minute: "2-digit"
-				}) : "";
-			const statusId = `status_${++statusPayloadId}`;
-			statusPayloads[statusId] = items;
+			const renderUserList = (userGroups) => {
+				userGroups.forEach(group => {
+					if (!statusUserGroups.some(x => x.uid === group.uid))
+						statusUserGroups.push(group);
+				});
 			
-			return `
-                    <div
-                        onclick='openStatusUserModal(statusPayloads["${statusId}"])'
-                        class="flex flex-col justify-between p-2.5 rounded-lg bg-black/40 border border-slate-800 hover:border-anon-accent/50 cursor-pointer transition-all mb-2"
-                    >
-                        <div class="viewed-bars flex w-full gap-2">
-                            ${items.map(i => `<div class="viewed-bar bg-anon-accent" style="background:${isStatusViewed(i) ? "grey" : "#296a29000"};padding:2px;border-radius:5px;margin-bottom:10px;flex-grow:1"></div>`).join("")}
-                        </div>
-        
-                        <div class="flex items-center justify-between no-wrap">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="relative w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-emerald-500 to-teal-300 shrink-0">
-                                    ${avatarPic
-                                        ? `<img src="${escapeAttr(avatarPic)}" class="w-full h-full rounded-full object-cover border border-black">`
-                                        : `<div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-anon-accent text-xs border border-black"><i class="fa-solid fa-user"></i></div>`
-                                    }
-                                </div>
-        
-                                <div class="min-w-0 flex-1">
-                                    <div class="text-xs font-bold text-slate-100 truncate">${escapeHtml(senderName)}</div>
-                                    <div class="text-[10px] text-anon-muted font-mono">${items.length} status${items.length > 1 ? "es" : ""}</div>
-                                </div>
-                            </div>
-        
-                            <div class="flex items-center gap-2">
-                                <span class="text-[10px] text-anon-muted font-mono">${formattedTime}</span>
-                                <i class="fa-solid fa-chevron-right text-xs text-anon-muted"></i>
-                            </div>
-                        </div>
-                    </div>
-                `;
-		})
-		.join("");
-	
+				return userGroups.map(({
+					uid,
+					items,
+					latestTime
+				}) => {
+					const senderName = items[0].sender_name || items[0].push_name || items[0].sender || uid;
+					const avatarPic = items[0].img || items[0].avatar || items[0].profile_pic;
+					const formattedTime = latestTime ? new Date(latestTime * 1000)
+						.toLocaleTimeString([], {
+							hour: "2-digit",
+							minute: "2-digit"
+						}) : "";
+					const statusId = `status_${++statusPayloadId}`;
+					statusPayloads[statusId] = items;
+			
+					return `
+						<div
+							onclick='openStatusUserModal(statusPayloads["${statusId}"])'
+							class="flex flex-col justify-between p-2.5 rounded-lg bg-black/40 border border-slate-800 hover:border-anon-accent/50 cursor-pointer transition-all mb-2"
+						>
+							<div class="viewed-bars flex w-full gap-2">
+								${items.map(i => `<div class="viewed-bar bg-anon-accent" style="background:${isStatusViewed(i) ? "grey" : "#296a29000"};padding:2px;border-radius:5px;margin-bottom:10px;flex-grow:1"></div>`).join("")}
+							</div>
+			
+							<div class="flex items-center justify-between no-wrap">
+								<div class="flex items-center gap-3 min-w-0">
+									<div class="relative w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-emerald-500 to-teal-300 shrink-0">
+										${avatarPic
+											? `<img src="${escapeAttr(avatarPic)}" class="w-full h-full rounded-full object-cover border border-black">`
+											: `<div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-anon-accent text-xs border border-black"><i class="fa-solid fa-user"></i></div>`
+										}
+									</div>
+			
+									<div class="min-w-0 flex-1">
+										<div class="text-xs font-bold text-slate-100 truncate">${escapeHtml(senderName)}</div>
+										<div class="text-[10px] text-anon-muted font-mono">${items.length} status${items.length > 1 ? "es" : ""}</div>
+									</div>
+								</div>
+			
+								<div class="flex items-center gap-2">
+									<span class="text-[10px] text-anon-muted font-mono">${formattedTime}</span>
+									<i class="fa-solid fa-chevron-right text-xs text-anon-muted"></i>
+								</div>
+							</div>
+						</div>
+					`;
+				}).join("");
+			};
+
 	const statusContentHtml = isLoading ? `
                 <div class="mb-4 p-4 rounded-xl bg-anon-panel/40 border border-anon-border/50 text-center text-xs text-anon-muted">
                     <i class="fa-solid fa-spinner animate-spin mr-1"></i> Fetching status updates...
@@ -3735,9 +4237,17 @@ function renderChatThread(messages, isLoading = false) {
 			});
 			
 			const unviewedUsers = allUsers.filter(u => !u.isFullyViewed)
-				.sort((a, b) => b.latestTime - a.latestTime);
-			const viewedUsers = allUsers.filter(u => u.isFullyViewed)
-				.sort((a, b) => b.latestTime - a.latestTime);
+			.sort((a, b) => b.latestTime - a.latestTime);
+		
+		const viewedUsers = allUsers.filter(u => u.isFullyViewed)
+			.sort((a, b) => b.latestTime - a.latestTime);
+		
+		window.statusUsers = allUsers.map(u => ({
+			uid: u.uid,
+			statuses: u.items
+		}));
+
+
 			
 			const d = new Date(Number(list[0].created_at) * 1000);
 			const label = d.toLocaleDateString([], {
@@ -3786,7 +4296,7 @@ function renderChatThread(messages, isLoading = false) {
                 <button
                     id="newMessagesIndicator"
                     type="button"
-                    class="hidden pointer-events-auto absolute bottom-4 right-4 z-30 w-9 h-9 rounded-full bg-anon-accent text-white shadow-lg border border-white/20 text-xs font-bold items-center justify-center"
+                    class="hidden pointer-events-auto absolute bottom-36 right-4 z-30 w-9 h-9 rounded-full bg-anon-accent text-white shadow-lg border border-white/20 text-xs font-bold items-center justify-center"
                     onclick="scrollToNewMessages()"
                     title="New messages"
                 >
@@ -4025,16 +4535,36 @@ function markStatusGroupAsViewed(items) {
 	items.forEach(item => markStatusAsViewed(item));
 }
 
-function updateVolumeButton() {
-	const button = el("statusPauseBtn");
-	const progress = document.querySelector("#statusProgressContainer .status-current-progress");
-	
-	if (button) {
-		button.title = statusPaused ? "Resume status" : "Pause status";
-		button.innerHTML = statusPaused ?
-			'<i class="fa-solid fa-play text-sm"></i>' :
-			'<i class="fa-solid fa-pause text-sm"></i>';
+let statusVolume=1
+
+function updateStatusVolumeButton(){
+	const button=el("statusVolumeBtn")
+
+	if(button){
+		button.title=statusVolume<=0?"Unmute":"Mute"
+
+		button.innerHTML=statusVolume<=0
+			?'<i class="fa-solid fa-volume-mute text-sm"></i>'
+			:'<i class="fa-solid fa-volume-up text-sm"></i>'
 	}
+
+	const video=el("statusDayModalContent")?.querySelector("video")
+
+	if(video){
+		video.volume=statusVolume
+		video.muted=statusVolume<=0
+	}
+}
+
+function toggleStatusVolume(){
+	if(statusVolume>0){
+		statusVolumeBeforeMute=statusVolume
+		statusVolume=0
+	}else{
+		statusVolume=statusVolumeBeforeMute||1
+	}
+
+	updateStatusVolumeButton()
 }
 
 function updateStatusPauseButton() {
@@ -4074,11 +4604,36 @@ function scheduleStatusAdvance() {
 }
 
 function nextPersonStatus(){
+    const users=window.statusUsers||[]
 
+    if(!users.length){
+        closeStatusDayModal()
+        return
+    }
+
+    for(let i=0;i<users.length;i++){
+        const index=(currentStatusUserIndex+1+i)%users.length
+        const statuses=users[index]?.statuses||[]
+        const unseen=statuses.findIndex(s=>!isStatusViewed(s))
+
+        if(unseen!==-1){
+            currentStatusUserIndex=index
+            currentStatusList=statuses.sort(
+                (a,b)=>Number(a.created_at)-Number(b.created_at)
+            )
+            currentStatusIndex=unseen
+            statusPaused=false
+            statusDurationMs=STATUS_DURATION
+            statusRemainingMs=statusDurationMs
+            renderSingleStatus()
+            return
+        }
+    }
+
+    closeStatusDayModal()
 }
 
 function toggleStatusPause() {
-	if (!currentStatusList.length) return;
 	
 	if (statusPaused) {
 		statusPaused = false;
@@ -4119,35 +4674,58 @@ function closeStatusDayModal() {
 	}
 }
 
-function openStatusUserModal(statuses) {
-	if (!statuses?.length) return;
-	currentStatusList = statuses.sort((a, b) => Number(a.created_at) - Number(b.created_at));
+function openStatusUserModal(statuses){
+    if(!statuses?.length) return;
 
-	
-	el('mobileBottomNav')
-		?.classList.remove('flex')
-	el('mobileBottomNav')
-		?.classList.add('hidden')
-	document.getElementById('mobileBottomNav')
-		.setAttribute("style", "display:none !important")
+    currentStatusList=statuses.sort(
+        (a,b)=>Number(a.created_at)-Number(b.created_at)
+    );
 
-	
-	const firstUnviewedIndex = currentStatusList.findIndex(s => !isStatusViewed(s));
-	currentStatusIndex = firstUnviewedIndex !== -1 ? firstUnviewedIndex : 0;
-	
-	statusPaused = false;
-	statusDurationMs = STATUS_DURATION;
-	statusRemainingMs = statusDurationMs;
-	
-	const modal = el("statusDayModal");
-	if (modal) {
-		modal.classList.remove("hidden");
-		modal.classList.add("flex");
-	}
-	
-	renderSingleStatus();
+    const users=window.statusUsers||[];
+    const uid=currentStatusList[0]?.sender||
+        currentStatusList[0]?.sender_jid||
+        currentStatusList[0]?.sender_name||
+        currentStatusList[0]?.push_name||
+        "unknown";
+
+    currentStatusUserIndex=users.findIndex(
+        u=>u.uid===uid
+    );
+
+    el('mobileBottomNav')
+        ?.classList.remove('flex');
+
+    el('mobileBottomNav')
+        ?.classList.add('hidden');
+
+    document.getElementById('mobileBottomNav')
+        ?.setAttribute(
+            "style",
+            "display:none !important"
+        );
+
+    const firstUnviewedIndex=currentStatusList.findIndex(
+        s=>!isStatusViewed(s)
+    );
+
+    currentStatusIndex=
+        firstUnviewedIndex!==-1
+            ?firstUnviewedIndex
+            :0;
+
+    statusPaused=false;
+    statusDurationMs=STATUS_DURATION;
+    statusRemainingMs=statusDurationMs;
+
+    const modal=el("statusDayModal");
+
+    if(modal){
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+    }
+
+    renderSingleStatus();
 }
-
 async function sendLinkMessage(){
     const conversationKey=activeThread?.conversation_key
 
@@ -4280,7 +4858,7 @@ function renderSingleStatus() {
 		} else if (m.media_type === "video" || m.mime_type?.startsWith("video/")) {
 			body = `
                         ${loaderHtml}
-                        <video autoplay playsinline class="max-w-full max-h-full object-contain">
+                        <video autoplay playsinline class="max-w-full max-h-full object-contain" ${statusVolume}>
                             <source src="${escapeAttr(src)}">
                         </video>
                     `;
@@ -4421,18 +4999,15 @@ function toggleCaption(element,text){
         caption.dataset.expanded="true"
     }
 }
-
-function nextStatusSegment() {
-	if (currentStatusIndex < currentStatusList.length - 1) {
-		currentStatusIndex++;
-		statusPaused = false;
-		renderSingleStatus();
-	} else {
-		nextPersonStatus()
-		closeStatusDayModal();
-	}
+function nextStatusSegment(){
+    if(currentStatusIndex<currentStatusList.length-1){
+        currentStatusIndex++;
+        statusPaused=false;
+        renderSingleStatus();
+    }else{
+        nextPersonStatus();
+    }
 }
-
 function prevStatusSegment() {
 	if (currentStatusIndex > 0) {
 		currentStatusIndex--;
@@ -4725,13 +5300,11 @@ function bindSwipeReply() {
 	const resetBubble = bubble => {
 		if (!bubble) return;
 		bubble.style.transform = "";
-		console.log('reseting')
 
 		bubble.classList.remove("swipe-dragging", "swipe-ready");
 	};
 	
 	container.addEventListener("pointerdown", event => {
-		console.log('p down')
 
 		if (event.pointerType === "mouse") return;
 		const bubble = event.target.closest(".message-bubble[data-swipe-reply=\"true\"]");
@@ -4750,7 +5323,6 @@ function bindSwipeReply() {
 	});
 	
 	container.addEventListener("pointermove", event => {
-		console.log('moved')
 
 		if (!gesture || event.pointerId !== gesture.pointerId) return;
 		const rawX = (event.clientX - gesture.startX) * gesture.direction;
@@ -4773,10 +5345,8 @@ function bindSwipeReply() {
 	});
 	
 	const finish = event => {
-		console.log('inishing')
 
 		if (!gesture || (event.pointerId != null && event.pointerId !== gesture.pointerId)) return;
-		console.log('inishing 5')
 
 		const current = gesture;
 		const distance = Math.max(0, (event.clientX - current.startX) * current.direction);
@@ -4784,10 +5354,8 @@ function bindSwipeReply() {
 		let payload = current.bubble.dataset.replyPayload || "";
 		resetBubble(current.bubble);
 		gesture = null;
-		console.log('inishing 6')
 		
 		if (!ready) {
-			console.log('returned not ready')
 			return};
 		try {
 		    payload = JSON.stringify(payload)
@@ -4798,7 +5366,6 @@ function bindSwipeReply() {
 			let senderName = replyPayload.sender == me ? "you" : replyPayload.senderName
 			//replyPayload.senderName  = senderName
 
-			console.log(replyPayload)
 
 			selectReplyMessage(replyPayload)
 
@@ -5009,17 +5576,6 @@ function updateComposerState() {
 	const recordBtn = el("recordBtn");
 	const hasText = Boolean(input?.value.trim());
 	const canSend = Boolean(activeThread?.conversation_key) && !activeThread?.readOnly && (hasText || selectedAttachment);
-	
-	// if (sendBtn) {
-	//	sendBtn.disabled = composerBusy || !canSend;
-	//	sendBtn.classList.toggle("opacity-50", sendBtn.disabled);
-	//	sendBtn.classList.toggle("cursor-not-allowed", sendBtn.disabled);
-	//}
-	
-	//if (recordBtn) {
-	//	recordBtn.disabled = composerBusy;
-	//	recordBtn.classList.toggle("opacity-50", recordBtn.disabled);
-	//}
 }
 
 function clearReplyTarget() {
@@ -5079,48 +5635,68 @@ function attachmentIcon(file) {
 	return "fa-file-lines";
 }
 
-function renderAttachmentPreview() {
-	const preview = el("attachmentPreview");
-	if (!preview) return;
-	
-	if (!selectedAttachment) {
-		preview.classList.remove("is-visible");
-		return;
-	}
-	
-	preview.classList.add("is-visible");
-	const icon = el("attachmentIcon");
-	if (icon) icon.className = `fa-solid ${attachmentIcon(selectedAttachment)} text-anon-accent`;
-	if (el("attachmentName")) el("attachmentName")
-		.textContent = selectedAttachment.name;
-	if (el("attachmentMeta")) el("attachmentMeta")
-		.textContent = `${selectedAttachment.type || "file"} · ${formatBytes(selectedAttachment.size)}`;
+function renderAttachmentPreview(){
+    const preview=el("attachmentPreview");
+    if(!preview)return;
+
+    if(!selectedAttachments.length){
+        preview.classList.remove("is-visible");
+        return;
+    }
+
+    preview.classList.add("is-visible");
+
+    const icon=el("attachmentIcon");
+    if(icon)
+        icon.className=`fa-solid ${attachmentIcon(selectedAttachments[0])} text-anon-accent`;
+
+    if(el("attachmentName"))
+        el("attachmentName").textContent=
+            selectedAttachments.length===1
+                ?selectedAttachments[0].name
+                :`${selectedAttachments.length} files`;
+
+    if(el("attachmentMeta"))
+        el("attachmentMeta").textContent=
+            selectedAttachments.length===1
+                ?`${selectedAttachments[0].type||"file"} · ${formatBytes(selectedAttachments[0].size)}`
+                :selectedAttachments
+                    .map(f=>`${f.name} (${formatBytes(f.size)})`)
+                    .join(" · ");
 }
 
-function clearAttachment() {
-	selectedAttachment = null;
-	const input = el("attachmentInput");
-	if (input) input.value = "";
-	renderAttachmentPreview();
-	updateComposerState();
+function clearAttachment(){
+    selectedAttachments=[];
+    const input=el("attachmentInput");
+    if(input)input.value="";
+    renderAttachmentPreview();
+    updateComposerState();
 }
 
-function handleAttachmentChange(event) {
-	const file = event.target.files?.[0];
-	if (!file) return;
-	
-	if (file.size > 18 * 1024 * 1024) {
-		clearAttachment();
-		setComposerStatus("Please choose a file smaller than 18 MB.", "error");
-		return;
-	}
-	
-	selectedAttachment = file;
-	renderAttachmentPreview();
-	setComposerStatus(`${file.name} ready to send.`, "success");
-	updateComposerState();
-}
+function handleAttachmentChange(event){
+    const files=[...(event.target.files||[])];
+    if(!files.length)return;
 
+    const valid=[];
+
+    for(const file of files){
+        if(file.size>18*1024*1024){
+            setComposerStatus(`${file.name} is larger than 18 MB.`,"error");
+            continue;
+        }
+        valid.push(file);
+    }
+
+    selectedAttachments.push(...valid);
+
+    renderAttachmentPreview();
+    setComposerStatus(
+        `${selectedAttachments.length} file${selectedAttachments.length!==1?"s":""} ready to send.`,
+        "success"
+    );
+
+    updateComposerState();
+}
 function insertEmoji(emoji) {
 	const input = el("msg-input");
 	if (!input) return;
@@ -5257,7 +5833,6 @@ const pendingDB=new Promise((resolve,reject)=>{
 async function saveSendingMessage(data){
     const payload=JSON.parse(data)
     const id=payload.id
-	console.log(id)
     const message={
         ...payload,
         created_at:Date.now(),
@@ -5292,7 +5867,6 @@ async function getPendingMessages(){
 async function deletePendingMessage(id){
     const db=await pendingDB
 
-	console.log(id)
 
     return new Promise((resolve,reject)=>{
         const tx=db.transaction("pendingMessages","readwrite")
@@ -5422,143 +5996,180 @@ async function toggleAudioRecording() {
 }
 
 async function sendComposerMessage(event){
-    event?.preventDefault?.()
-
-    if(composerBusy)return
+    event?.preventDefault?.();
+    if(composerBusy)return;
 
     if(mediaRecorder&&mediaRecorder.state!=="inactive"){
-        setComposerStatus("Stop the recording before sending.","error")
-        return
+        setComposerStatus("Stop the recording before sending.","error");
+        return;
     }
 
-    const conversationKey=activeThread?.conversation_key
-    const input=el("msg-input")
-    const text=input?.value.trim()||""
+    const conversationKey=activeThread?.conversation_key;
+    const input=el("msg-input");
+    const text=input?.value.trim()||"";
+    const files=selectedAttachments||[];
 
-    if(!conversationKey||activeThread?.readOnly||(!text&&!selectedAttachment)){
+    if(!conversationKey||activeThread?.readOnly||(!text&&!files.length)){
         setComposerStatus(
             !conversationKey?"Open a conversation first.":
             activeThread?.readOnly?"Status broadcasts are read-only.":
             "Write a message or choose an attachment.",
             "error"
-        )
-        return
+        );
+        return;
     }
 
-    composerBusy=true
-    updateComposerState()
+    composerBusy=true;
+    updateComposerState();
 
     try{
-        let media=null
+        const replyTo=replyTarget?.conversation_key===conversationKey
+            ?replyTarget.id:null;
 
-        if(selectedAttachment){
-            media={
-                type:selectedAttachment.type?.startsWith("image/")?"image":
-                    selectedAttachment.type?.startsWith("video/")?"video":
-                    selectedAttachment.type?.startsWith("audio/")?"audio":"document",
-                mimetype:selectedAttachment.type||"application/octet-stream",
-                fileName:selectedAttachment.name,
-                base64:await fileToBase64(selectedAttachment),
-                ptt:selectedAttachment.type?.startsWith("audio/")
+        if(files.length){
+            for(let i=0;i<files.length;i++){
+                const file=files[i];
+                const type=file.type?.startsWith("image/")?"image":
+                    file.type?.startsWith("video/")?"video":
+                    file.type?.startsWith("audio/")?"audio":"document";
+
+                const pendingId=crypto.randomUUID();
+
+                const payload=JSON.stringify({
+                    id:pendingId,
+                    client_id:pendingId,
+                    conversation_key:conversationKey,
+                    text:i===0?text:"",
+                    media:{
+                        type,
+                        mimetype:file.type||"application/octet-stream",
+                        fileName:file.name,
+                        base64:await fileToBase64(file),
+                        ptt:type==="audio"
+                    },
+                    reply_to:i===0?replyTo:null
+                });
+
+                await saveSendingMessage(payload);
+
+                const uploadUI=createUploadingMessage(payload);
+
+                await new Promise((resolve,reject)=>{
+                    const xhr=new XMLHttpRequest();
+                    xhr.open("POST","/api/messages/send");
+                    xhr.setRequestHeader("Content-Type","application/json");
+
+                    uploadUI.cancel?.addEventListener("click",()=>{
+                        xhr.abort();
+                        document.getElementById(uploadUI.id)?.remove();
+                        reject(new Error("Upload cancelled"));
+                    });
+
+                    xhr.upload.onprogress=e=>{
+                        if(!e.lengthComputable)return;
+                        const percent=Math.round(e.loaded/e.total*100);
+
+                        if(uploadUI.progress)
+                            uploadUI.progress.style.strokeDashoffset=
+                                125.66-(125.66*percent/100);
+
+                        if(uploadUI.percent)
+                            uploadUI.percent.textContent=`${percent}%`;
+
+                        if(uploadUI.bar)
+                            uploadUI.bar.style.width=`${percent}%`;
+                    };
+
+                    xhr.onload=()=>{
+                        let data={};
+                        try{data=JSON.parse(xhr.responseText)}catch{}
+
+                        if(xhr.status>=200&&xhr.status<300)
+                            resolve(data);
+                        else
+                            reject(new Error(data.error||"Message could not be sent"));
+                    };
+
+                    xhr.onerror=()=>{
+                        reject(new Error("Message could not be sent"));
+                    };
+
+                    xhr.onabort=()=>{
+                        reject(new Error("Upload cancelled"));
+                    };
+
+                    xhr.send(payload);
+                });
+
+                document.getElementById(uploadUI.id)?.remove();
             }
+        }else{
+            const pendingId=crypto.randomUUID();
+
+            const payload=JSON.stringify({
+                id:pendingId,
+                client_id:pendingId,
+                conversation_key:conversationKey,
+                text,
+                media:null,
+                reply_to:replyTo
+            });
+
+            await saveSendingMessage(payload);
+
+            const uploadUI=createUploadingMessage(payload);
+
+            await new Promise((resolve,reject)=>{
+                const xhr=new XMLHttpRequest();
+                xhr.open("POST","/api/messages/send");
+                xhr.setRequestHeader("Content-Type","application/json");
+
+                uploadUI.cancel?.addEventListener("click",()=>{
+                    xhr.abort();
+                    document.getElementById(uploadUI.id)?.remove();
+                    reject(new Error("Upload cancelled"));
+                });
+
+                xhr.onload=()=>{
+                    let data={};
+                    try{data=JSON.parse(xhr.responseText)}catch{}
+
+                    if(xhr.status>=200&&xhr.status<300)
+                        resolve(data);
+                    else
+                        reject(new Error(data.error||"Message could not be sent"));
+                };
+
+                xhr.onerror=()=>{
+                    reject(new Error("Message could not be sent"));
+                };
+
+                xhr.onabort=()=>{
+                    reject(new Error("Upload cancelled"));
+                };
+
+                xhr.send(payload);
+            });
+
+            document.getElementById(uploadUI.id)?.remove();
         }
-
-        const pendingId=crypto.randomUUID()
-
-		const payload=JSON.stringify({
-			id:pendingId,
-			client_id:pendingId,
-			conversation_key:conversationKey,
-			text,
-			media,
-			reply_to:replyTarget?.conversation_key===conversationKey?replyTarget.id:null
-		})
-
-		await saveSendingMessage(payload)
-
-		composerBusy=false
-		updateComposerState()
-
-        const uploadUI=createUploadingMessage(payload)
-
-		await new Promise((resolve,reject)=>{
-			const xhr=new XMLHttpRequest()
-		
-			xhr.open("POST","/api/messages/send")
-			xhr.setRequestHeader("Content-Type","application/json")
-		
-			uploadUI.cancel?.addEventListener("click",()=>{
-				xhr.abort()
-				document.getElementById(uploadUI.id)?.remove()
-				reject(new Error("Upload cancelled"))
-			})
-		
-			xhr.upload.onprogress=e=>{
-				if(!e.lengthComputable||!uploadUI)
-					return
-		
-				const percent=Math.round(e.loaded/e.total*100)
-		
-				if(uploadUI.progress)
-					uploadUI.progress.style.strokeDashoffset=
-						125.66-(125.66*percent/100)
-		
-				if(uploadUI.percent)
-					uploadUI.percent.textContent=`${percent}%`
-		
-				if(uploadUI.bar)
-					uploadUI.bar.style.width=`${percent}%`
-			}
-		
-			xhr.onload=()=>{
-				let data={}
-		
-				try{
-					data=JSON.parse(xhr.responseText)
-				}catch{}
-		
-				if(xhr.status>=200&&xhr.status<300)
-					resolve(data)
-				else
-					reject(new Error(data.error||"Message could not be sent"))
-			}
-		
-			xhr.onerror=()=>{
-				document.querySelectorAll("retry-pending")
-				reject(new Error("Message could not be sent"))
-			}
-		
-			xhr.onabort=()=>{
-				reject(new Error("Upload cancelled"))
-			}
-		
-			xhr.send(payload)
-		})
-
-        document.getElementById(uploadUI.id)?.remove()
 
         if(input){
-            input.value=""
-            input.style.height="auto"
+            input.value="";
+            input.style.height="auto";
         }
 
-        clearAttachment()
-        clearReplyTarget()
-        el("emojiMenu")?.classList.add("hidden")
-
-        setComposerStatus("Message sent.","success")
-
+        clearAttachment();
+        clearReplyTarget();
+        el("emojiMenu")?.classList.add("hidden");
+        setComposerStatus("Message sent.","success");
     }catch(error){
-        setComposerStatus(
-            error.message||"Message could not be sent",
-            "error"
-        )
+        setComposerStatus(error.message||"Message could not be sent","error");
     }finally{
-        composerBusy=false
-        updateComposerState()
+        composerBusy=false;
+        updateComposerState();
     }
 }
-
 function createUploadingMessage(msg, pending){
     msg=JSON.parse(msg)
 
@@ -6015,6 +6626,10 @@ function handleMediaType(type) {
 	}
 }
 
+document.addEventListener('DOMContentLoaded', ()=>{
+
+})
+
 function toggleContactShare() {
 	el('contactsShare')
 		?.classList.toggle('hidden')
@@ -6073,55 +6688,156 @@ uploadBtn?.addEventListener("click", async () => {
 	}
 })
 
-async function loadContacts() {
-	try {
-		const response = await fetch("/api/contacts/all")
-		const data = await response.json()
-		const contacts = data.contacts || []
-		
-		if (!contacts.length) {
-			contactsBox.innerHTML =
-				'<p class="p-4 text-center text-xs text-anon-muted">No contacts imported yet.</p>'
-			return
-		}
-		
-		contactsBox.innerHTML = `
-                        <div class="px-2 py-2 text-[9px] font-mono text-anon-muted">
-                            ${contacts.length} contact entries
+
+
+function renderContacts(search=""){
+    const query=String(search).trim().toLowerCase()
+
+	const contactsBox = document.getElementById('contactsList')
+
+
+    const filtered=contacts.filter(contact=>{
+        return [
+            contact?.name,
+            contact?.phone,
+            contact?.email
+        ].some(value=>
+            String(value||"").toLowerCase().includes(query)
+        )
+    })
+
+    if(!filtered.length){
+        contactsBox.innerHTML='<p class="p-4 text-center text-xs text-anon-muted">No contacts found.</p>'
+        return
+    }
+
+
+    contactsBox.innerHTML=`
+        <div class="px-2 py-2 text-[9px] font-mono text-anon-muted">
+            ${filtered.length} contact${filtered.length!==1?"s":""}
+        </div>
+        <div class="space-y-1">
+            ${filtered.map(contact=>`
+                <div class="p-2.5 rounded-lg bg-black/20 border border-anon-border hover:bg-anon-panel/60 transition-colors">
+                    <div class="text-xs font-semibold text-anon-text truncate">${escapeHtml(contact.name)}</div>
+                    ${contact.phone?`
+                        <div class="text-[10px] text-anon-muted mt-0.5">
+                            <i class="fa-solid fa-phone text-[8px] mr-1"></i>
+                            ${escapeHtml(contact.phone)}
                         </div>
-            
-                        <div class="space-y-1">
-                            ${contacts.map(contact => `
-                                <div class="p-2.5 rounded-lg bg-black/20 border border-anon-border hover:bg-anon-panel/60 transition-colors">
-                                    <div class="text-xs font-semibold text-anon-text truncate">
-                                        ${escapeHtml(contact.name)}
-                                    </div>
-            
-                                    ${contact.phone ? `
-                                        <div class="text-[10px] text-anon-muted mt-0.5">
-                                            <i class="fa-solid fa-phone text-[8px] mr-1"></i>
-                                            ${escapeHtml(contact.phone)}
-                                        </div>
-                                    ` : ""}
-            
-                                    ${contact.email ? `
-                                        <div class="text-[10px] text-anon-muted mt-0.5">
-                                            <i class="fa-solid fa-envelope text-[8px] mr-1"></i>
-                                            ${escapeHtml(contact.email)}
-                                        </div>
-                                    ` : ""}
-                                </div>
-                            `).join("")}
+                    `:""}
+                    ${contact.email?`
+                        <div class="text-[10px] text-anon-muted mt-0.5">
+                            <i class="fa-solid fa-envelope text-[8px] mr-1"></i>
+                            ${escapeHtml(contact.email)}
                         </div>
-                    `
-	} catch {
-		contactsBox.innerHTML =
-			'<p class="p-4 text-center text-xs text-red-400">Failed to load contacts.</p>'
-	}
+                    `:""}
+                </div>
+            `).join("")}
+        </div>
+    `
 }
 
-
 window.addEventListener('DOMContentLoaded',()=>{
+	const statusVolumeArea=document.getElementById("statusVolumeArea")
+const volumeRange=document.getElementById("volume-range")
+const statusVolumeOverlay=document.getElementById("statusVolumeOverlay")
+const statusVolumeValue=document.getElementById("statusVolumeValue")
+const statusVolumeIcon=document.getElementById("statusVolumeIcon")
+
+let volumeDragging=false
+let volumeLastY=0
+let volumeValue=parseFloat(volumeRange?.value)||1
+let volumeHideTimer=null
+
+function updateStatusVolumeFromValue(value){
+	value=Math.max(0,Math.min(1,value))
+	volumeValue=value
+	volumeRange.value=value
+
+	const video=el("statusDayModalContent")?.querySelector("video")
+
+	if(video){
+		video.volume=value
+		video.muted=value<=0
+	}
+
+	statusVolume=value<=0?"muted":"sound"
+
+	const percent=Math.round(value*100)
+
+	statusVolumeValue.textContent=`${percent}%`
+
+	statusVolumeIcon.className=
+		value<=0
+			?"fa-solid fa-volume-xmark text-2xl"
+			:value<0.5
+				?"fa-solid fa-volume-low text-2xl"
+				:"fa-solid fa-volume-high text-2xl"
+
+	statusVolumeOverlay.classList.remove("hidden")
+	statusVolumeOverlay.classList.add("flex")
+
+	clearTimeout(volumeHideTimer)
+
+	volumeHideTimer=setTimeout(()=>{
+		statusVolumeOverlay.classList.add("hidden")
+		statusVolumeOverlay.classList.remove("flex")
+	},500)
+
+	updateStatusVolumeButton()
+}
+
+statusVolumeArea?.addEventListener("pointerdown",e=>{
+	if(e.button!==0)return
+
+	volumeDragging=true
+	volumeLastY=e.clientY
+	volumeValue=parseFloat(volumeRange.value)||volumeValue
+
+	statusVolumeArea.setPointerCapture?.(e.pointerId)
+
+	console.log("[VOLUME START]",{
+		y:e.clientY,
+		value:volumeValue
+	})
+})
+
+statusVolumeArea?.addEventListener("pointermove",e=>{
+	if(!volumeDragging)return
+
+	const delta=volumeLastY-e.clientY
+
+	if(Math.abs(delta)<1)return
+
+	volumeLastY=e.clientY
+
+	const change=delta/300
+	const value=volumeValue+change
+
+	console.log("[VOLUME MOVE]",{
+		delta,
+		change,
+		value
+	})
+
+	updateStatusVolumeFromValue(value)
+})
+
+statusVolumeArea?.addEventListener("pointerup",e=>{
+	volumeDragging=false
+
+	statusVolumeArea.releasePointerCapture?.(e.pointerId)
+
+	console.log("[VOLUME END]",{
+		value:volumeValue,
+		percent:Math.round(volumeValue*100)
+	})
+})
+
+statusVolumeArea?.addEventListener("pointercancel",()=>{
+	volumeDragging=false
+})
     el("chatMessagesContainer")?.addEventListener("scroll",()=>{
         const container=el("chatMessagesContainer")
 
