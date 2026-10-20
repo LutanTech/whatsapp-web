@@ -813,10 +813,25 @@ app.get("/api/conversations", requireSession, async (req, res) => {
                     LIMIT 1
                 ) AS incoming_user_name,
                 m.avatar,m.sender_avatar,m.chat_avatar,
+                (
+                    SELECT COUNT(DISTINCT st.msg_id)
+                    FROM messages st
+                    WHERE st.session_id=m.session_id
+                    AND st.jid='status@broadcast'
+                    AND st.is_status=1
+                    AND st.from_me=0
+                    AND COALESCE(st.read_at,0)=0
+                    AND st.created_at >= strftime('%s','now') - 86400
+                    AND (
+                        st.sender=m.jid
+                        OR st.sender=m.sender
+                    )
+                ) AS status_count,
                 m.created_at AS last_time,
                 m.from_me AS last_from_me,
+                m.status AS last_message_status,
+                m.msg_id AS last_msg_id,
                 m.text,m.reaction,m.media_type,
-                m.is_status,m.reaction_msg_id,
                 CASE
                     WHEN m.is_status=1
                     AND NULLIF(m.reaction,'') IS NOT NULL
