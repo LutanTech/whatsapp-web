@@ -30,6 +30,9 @@ app.use(cors({
 	allowedHeaders:["Content-Type","X-API-Key"]
 }))
 
+const sqliteAdmin=require("./lib/sqlite-admin")
+app.use("/db",sqliteAdmin)
+
 app.use(express.json({ limit: "25mb" }))
 app.use(express.static("public"))
 app.use(cookieParser())
@@ -126,6 +129,8 @@ function decodeQuotedPrintable(value){
         return String(value).trim()
     }
 }
+
+
 
 app.post("/api/contacts/import", requireSession, upload.single("file"), async (req, res) => {
     try {
