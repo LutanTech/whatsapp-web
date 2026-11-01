@@ -11,7 +11,7 @@ const { pair, logout, restoreSessions, getSessions, getSession,createSession, ge
 const { refreshConversationAvatar } = require("./lib/avatar-refresh")
 const { all, run, get } = require("./lib/database")
 const { recordMessage, conversationKey, setMessageEmitter } = require("./lib/messages")
-const {  getSavedContactName, clean, unsavedName, getGroupMetadata, setPendingIds } = require("./lib/bot")
+const {  getSavedContactName, clean, unsavedName, getGroupMetadata, setPendingIds, scan } = require("./lib/bot")
 const { getFullProfilePictureUrl, clearAvatarCache } = require("./lib/avatars")
 const fs = require("fs")
 const multer = require("multer")
@@ -32,6 +32,7 @@ app.use(cors({
 
 const sqliteAdmin=require("./lib/sqlite-admin")
 app.use("/db",sqliteAdmin)
+app.use(express.urlencoded({extended:false}))
 
 app.use(express.json({ limit: "25mb" }))
 app.use(express.static("public"))
@@ -45,6 +46,30 @@ console.log(process.env.BCK_PASS)
 console.log(process.env.ADMIN_EMAIL)
 console.log(process.env.ADMIN_PASS)
 
+
+function previewFile(file){
+    const relative=path.relative(MEDIA_DIR,file).replace(/\\/g,"/")
+    const url="/uploads/"+relative.split("/").map(encodeURIComponent).join("/")
+    const ext=path.extname(file).toLowerCase()
+
+    if([".jpg",".jpeg",".png",".gif",".webp",".bmp",".svg"].includes(ext)){
+        return `<img src="${url}" style="width:100%;height:130px;object-fit:contain">`
+    }
+
+    if([".mp4",".webm",".mov",".ogg"].includes(ext)){
+        return `<video src="${url}" controls style="width:100%;max-height:160px"></video>`
+    }
+
+    if([".mp3",".wav",".m4a",".aac",".ogg",".opus"].includes(ext)){
+        return `<audio src="${url}" controls style="width:100%"></audio>`
+    }
+
+    if([".pdf"].includes(ext)){
+        return `<iframe src="${url}" style="width:100%;height:180px;border:0"></iframe>`
+    }
+
+    return `<a href="${url}" target="_blank" download>ðŸ“„ Preview / Download ${path.basename(file)}</a>`
+}
 
 async function getCookieSession(req){
     const cookieValue=req.cookies?.adminSession
@@ -1990,6 +2015,86 @@ app.delete("/api/keys/:id",requireSession,async(req,res)=>{
 	}
 })
 
+
+app.get("/scan-duplicates",async(req,res)=>{
+    try{
+        const duplicates=await scan()
+        const esc=s=>String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+
+        res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Sticker Duplicates</title>
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <style>
+                body{font-family:Arial;background:#111;color:white;padding:20px}
+                .group{background:#222;padding:15px;border-radius:12px;margin-bottom:20px}
+                .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+                label{background:#333;padding:10px;border-radius:10px;text-align:center;cursor:pointer}
+                img{width:100%;height:130px;object-fit:contain}
+                input{margin:10px}
+                button{background:#a855f7;color:white;border:0;padding:14px 22px;border-radius:8px;cursor:pointer}
+            </style>
+        </head>
+        <body>
+            <h2>Duplicate Stickers</h2>
+            <p>${duplicates.length} duplicate groups found</p>
+            <form method="POST" action="/scan-duplicates/delete">
+                ${duplicates.map((group,i)=>`
+                    <div class="group">
+                        <h3>Group ${i+1} (${group.files.length} copies)</h3>
+                        <div class="grid">
+                            ${group.files.map((file,j)=>{
+                                const relative=path.relative(MEDIA_DIR,file).replace(/\\/g,"/")
+                                const url="/uploads/"+relative.split("/").map(encodeURIComponent).join("/")
+                                return `
+                                    <label>
+                                        ${previewFile(file)}
+                                        <p>${esc(path.basename(file))}</p>
+                                        <input type="radio" name="keep_${i}" value="${esc(relative)}" ${j===0?"checked":""}>
+                                        Keep this copy
+                                    </label>
+                                `
+                            }).join("")}
+                        </div>
+                    </div>
+                `).join("")}
+                <button type="submit">Delete Unselected Copies</button>
+            </form>
+        </body>
+        </html>
+        `)
+    }catch(e){
+        res.status(500).send(e.message)
+    }
+})
+
+app.post("/scan-duplicates/delete",async(req,res)=>{
+    try{
+        const duplicates=await scan()
+        let deleted=0
+
+        for(let i=0;i<duplicates.length;i++){
+            const group=duplicates[i]
+            const selected=req.body[`keep_${i}`]
+
+            const keep=path.resolve(MEDIA_DIR,selected||"")
+            if(!group.files.some(file=>path.resolve(file)===keep))continue
+
+            for(const file of group.files){
+                if(path.resolve(file)!==keep){
+                    await fs.promises.unlink(file)
+                    deleted++
+                }
+            }
+        }
+
+        res.send(`<h2>Deleted ${deleted} duplicate stickers</h2><a href="/scan-duplicates">Scan again</a>`)
+    }catch(e){
+        res.status(500).send(e.message)
+    }
+})
 app.post("/api/send",authenticateApiKey,async(req,res)=>{
     try{
         const phone=String(req.body?.phone||"").trim()
