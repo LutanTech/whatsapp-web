@@ -1884,9 +1884,19 @@ async function loadMoreConversations(){
 
     conversationsLoading=true
 
+    document.querySelectorAll('#cSpinner').forEach(c=>c.remove())
+
+    const loader=document.createElement('div')
+    loader.id='cSpinner'
+    loader.className='w-full flex justify-center items-center py-3 text-gray-400'
+    loader.innerHTML='<i class="fas fa-spinner fa-spin text-lg"></i>'
+
+    el("conversationsList").appendChild(loader)
+
     try{
         const nextPage=conversationsPage+1
         const r=await fetch(`/api/conversations?page=${nextPage}&limit=${conversationsLimit}`,{credentials:"include"})
+
         if(!r.ok)throw new Error("Failed to load conversations")
 
         const data=await r.json()
@@ -1894,9 +1904,7 @@ async function loadMoreConversations(){
 
         const existing=new Set(conversations.map(x=>x.conversation_key))
 
-        conversations.push(
-            ...items.filter(x=>!existing.has(x.conversation_key))
-        )
+        conversations.push(...items.filter(x=>!existing.has(x.conversation_key)))
 
         conversationsPage=data.pagination?.page||nextPage
         conversationsHasNext=Boolean(data.pagination?.has_next)
@@ -1906,6 +1914,7 @@ async function loadMoreConversations(){
         console.error("[CONVERSATIONS]",e)
     }finally{
         conversationsLoading=false
+        loader.remove()
     }
 }
 
@@ -2861,7 +2870,7 @@ function saveDraft(val){
 
 
 function createPresenceUI(avatar,name,online,typing,recording,key,phone){
-    if(activeThread.conversation_key!==key)return
+    if(!activeThread || activeThread && activeThread.conversation_key!==key)return
 
     const id=`typing-${btoa(key)}-${phone}`
     const exists=document.getElementById(id)
