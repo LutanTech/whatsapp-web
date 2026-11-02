@@ -383,8 +383,6 @@ app.get("/pair", async (req, res) => {
 })
 
 app.get("/",async(req,res)=>{
-    await updateNames()
-
     if(!req.cookies.paired_token||!req.cookies.adminSession){
         res.cookie("adminSession",0,{maxAge:-60000})
         res.cookie("paired_token",0,{maxAge:-60000})
