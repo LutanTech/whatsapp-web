@@ -118,6 +118,22 @@ body {
 	height: 100%;
 }
 
+.typing-dot{
+    width:5px;
+    height:5px;
+    border-radius:50%;
+    background:currentColor;
+    animation:typingDance 0.8s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(2){animation-delay:0.15s}
+.typing-dot:nth-child(3){animation-delay:0.3s}
+
+@keyframes typingDance{
+    0%,60%,100%{transform:translateY(0);opacity:.4}
+    30%{transform:translateY(-5px);opacity:1}
+}
+
 .theme-emerald {
 	.text-anon-accent {
 		color: #abff00fc;
@@ -792,19 +808,213 @@ body.theme-emerald #chatMessagesContainer {
 						</button>
 					</div>
 					
-					<div id="stickerMenu" class="hidden flex-wrap gap-2 mb-2 rounded-lg bg-anon-panel border border-anon-border shadow-xl overflow-y-auto p-6 max-w-[350px]" style="position: fixed; bottom: 100px; height: 208px; z-index: 999; border-top:15px solid #0f172a" onscroll="loadMoreStickers(this)">
+					<div id="stickerMenu" class="hidden flex flex-wrap gap-4 mb-2 rounded-lg bg-anon-panel border border-anon-border shadow-xl overflow-y-auto p-6 max-w-[400px]" style="position: fixed; bottom: 120px; max-height: 210px; z-index: 999; border-top:15px solid #0f172a" onscroll="loadMoreStickers(this)">
 					</div>
 					
-					<div id="emojiMenu" class="hidden flex-wrap gap-1 p-2 mb-2 rounded-lg bg-anon-panel border border-anon-border shadow-xl max-h-24 overflow-y-auto">
-						
+					<div id="emojiMenu" class="hidden flex-wrap max-w-[400px] fixed bottom-[120px] z-[999] right-0 gap-1 p-2 mb-2 rounded-lg bg-anon-panel border border-anon-border shadow-xl overflow-y-auto max-h-[210px]">
+						<div id="recentEmojis" class="mb-6 pb-6 border-b-[1px] border-anon-accent ">
+							<h2 class="mb-2 font-bold text-sm text-anon-text truncate privacy-sensitive">Recent emojis</h2>
+							<div class="emojis"></div>
+					</div>
 						<button type="button" onclick="insertEmoji('😀')" class="hover:bg-white/10 rounded p-1.5">😀</button>
+						<button type="button" onclick="insertEmoji('😃')" class="hover:bg-white/10 rounded p-1.5">😃</button>
+						<button type="button" onclick="insertEmoji('😄')" class="hover:bg-white/10 rounded p-1.5">😄</button>
+						<button type="button" onclick="insertEmoji('😁')" class="hover:bg-white/10 rounded p-1.5">😁</button>
+						<button type="button" onclick="insertEmoji('😆')" class="hover:bg-white/10 rounded p-1.5">😆</button>
+						<button type="button" onclick="insertEmoji('😅')" class="hover:bg-white/10 rounded p-1.5">😅</button>
+						<button type="button" onclick="insertEmoji('🤣')" class="hover:bg-white/10 rounded p-1.5">🤣</button>
 						<button type="button" onclick="insertEmoji('😂')" class="hover:bg-white/10 rounded p-1.5">😂</button>
-						<button type="button" onclick="insertEmoji('❤️')" class="hover:bg-white/10 rounded p-1.5">❤️</button>
+						<button type="button" onclick="insertEmoji('🙂')" class="hover:bg-white/10 rounded p-1.5">🙂</button>
+						<button type="button" onclick="insertEmoji('🙃')" class="hover:bg-white/10 rounded p-1.5">🙃</button>
+						<button type="button" onclick="insertEmoji('😉')" class="hover:bg-white/10 rounded p-1.5">😉</button>
+						<button type="button" onclick="insertEmoji('😊')" class="hover:bg-white/10 rounded p-1.5">😊</button>
+						<button type="button" onclick="insertEmoji('😇')" class="hover:bg-white/10 rounded p-1.5">😇</button>
+						<button type="button" onclick="insertEmoji('🥰')" class="hover:bg-white/10 rounded p-1.5">🥰</button>
+						<button type="button" onclick="insertEmoji('😍')" class="hover:bg-white/10 rounded p-1.5">😍</button>
+						<button type="button" onclick="insertEmoji('🤩')" class="hover:bg-white/10 rounded p-1.5">🤩</button>
+						<button type="button" onclick="insertEmoji('😘')" class="hover:bg-white/10 rounded p-1.5">😘</button>
+						<button type="button" onclick="insertEmoji('😗')" class="hover:bg-white/10 rounded p-1.5">😗</button>
+						<button type="button" onclick="insertEmoji('😚')" class="hover:bg-white/10 rounded p-1.5">😚</button>
+						<button type="button" onclick="insertEmoji('😙')" class="hover:bg-white/10 rounded p-1.5">😙</button>
+						<button type="button" onclick="insertEmoji('😋')" class="hover:bg-white/10 rounded p-1.5">😋</button>
+						<button type="button" onclick="insertEmoji('😛')" class="hover:bg-white/10 rounded p-1.5">😛</button>
+						<button type="button" onclick="insertEmoji('😜')" class="hover:bg-white/10 rounded p-1.5">😜</button>
+						<button type="button" onclick="insertEmoji('🤪')" class="hover:bg-white/10 rounded p-1.5">🤪</button>
+						<button type="button" onclick="insertEmoji('😝')" class="hover:bg-white/10 rounded p-1.5">😝</button>
+						<button type="button" onclick="insertEmoji('🤑')" class="hover:bg-white/10 rounded p-1.5">🤑</button>
+						<button type="button" onclick="insertEmoji('🤗')" class="hover:bg-white/10 rounded p-1.5">🤗</button>
+						<button type="button" onclick="insertEmoji('🤭')" class="hover:bg-white/10 rounded p-1.5">🤭</button>
+						<button type="button" onclick="insertEmoji('🤫')" class="hover:bg-white/10 rounded p-1.5">🤫</button>
+						<button type="button" onclick="insertEmoji('🤔')" class="hover:bg-white/10 rounded p-1.5">🤔</button>
+						<button type="button" onclick="insertEmoji('🤐')" class="hover:bg-white/10 rounded p-1.5">🤐</button>
+						<button type="button" onclick="insertEmoji('🤨')" class="hover:bg-white/10 rounded p-1.5">🤨</button>
+						<button type="button" onclick="insertEmoji('😐')" class="hover:bg-white/10 rounded p-1.5">😐</button>
+						<button type="button" onclick="insertEmoji('😑')" class="hover:bg-white/10 rounded p-1.5">😑</button>
+						<button type="button" onclick="insertEmoji('😶')" class="hover:bg-white/10 rounded p-1.5">😶</button>
+						<button type="button" onclick="insertEmoji('😏')" class="hover:bg-white/10 rounded p-1.5">😏</button>
+						<button type="button" onclick="insertEmoji('😒')" class="hover:bg-white/10 rounded p-1.5">😒</button>
+						<button type="button" onclick="insertEmoji('🙄')" class="hover:bg-white/10 rounded p-1.5">🙄</button>
+						<button type="button" onclick="insertEmoji('😬')" class="hover:bg-white/10 rounded p-1.5">😬</button>
+						<button type="button" onclick="insertEmoji('🤥')" class="hover:bg-white/10 rounded p-1.5">🤥</button>
+						<button type="button" onclick="insertEmoji('😌')" class="hover:bg-white/10 rounded p-1.5">😌</button>
+						<button type="button" onclick="insertEmoji('😔')" class="hover:bg-white/10 rounded p-1.5">😔</button>
+						<button type="button" onclick="insertEmoji('😪')" class="hover:bg-white/10 rounded p-1.5">😪</button>
+						<button type="button" onclick="insertEmoji('🤤')" class="hover:bg-white/10 rounded p-1.5">🤤</button>
+						<button type="button" onclick="insertEmoji('😴')" class="hover:bg-white/10 rounded p-1.5">😴</button>
+						<button type="button" onclick="insertEmoji('😷')" class="hover:bg-white/10 rounded p-1.5">😷</button>
+						<button type="button" onclick="insertEmoji('🤒')" class="hover:bg-white/10 rounded p-1.5">🤒</button>
+						<button type="button" onclick="insertEmoji('🤕')" class="hover:bg-white/10 rounded p-1.5">🤕</button>
+						<button type="button" onclick="insertEmoji('🤢')" class="hover:bg-white/10 rounded p-1.5">🤢</button>
+						<button type="button" onclick="insertEmoji('🤮')" class="hover:bg-white/10 rounded p-1.5">🤮</button>
+						<button type="button" onclick="insertEmoji('🤧')" class="hover:bg-white/10 rounded p-1.5">🤧</button>
+						<button type="button" onclick="insertEmoji('🥵')" class="hover:bg-white/10 rounded p-1.5">🥵</button>
+						<button type="button" onclick="insertEmoji('🥶')" class="hover:bg-white/10 rounded p-1.5">🥶</button>
+						<button type="button" onclick="insertEmoji('🥴')" class="hover:bg-white/10 rounded p-1.5">🥴</button>
+						<button type="button" onclick="insertEmoji('😵')" class="hover:bg-white/10 rounded p-1.5">😵</button>
+						<button type="button" onclick="insertEmoji('🤯')" class="hover:bg-white/10 rounded p-1.5">🤯</button>
+						<button type="button" onclick="insertEmoji('🤠')" class="hover:bg-white/10 rounded p-1.5">🤠</button>
+						<button type="button" onclick="insertEmoji('🥳')" class="hover:bg-white/10 rounded p-1.5">🥳</button>
+						<button type="button" onclick="insertEmoji('😎')" class="hover:bg-white/10 rounded p-1.5">😎</button>
+						<button type="button" onclick="insertEmoji('🤓')" class="hover:bg-white/10 rounded p-1.5">🤓</button>
+						<button type="button" onclick="insertEmoji('🧐')" class="hover:bg-white/10 rounded p-1.5">🧐</button>
+						<button type="button" onclick="insertEmoji('😕')" class="hover:bg-white/10 rounded p-1.5">😕</button>
+						<button type="button" onclick="insertEmoji('😟')" class="hover:bg-white/10 rounded p-1.5">😟</button>
+						<button type="button" onclick="insertEmoji('🙁')" class="hover:bg-white/10 rounded p-1.5">🙁</button>
+						<button type="button" onclick="insertEmoji('😮')" class="hover:bg-white/10 rounded p-1.5">😮</button>
+						<button type="button" onclick="insertEmoji('😯')" class="hover:bg-white/10 rounded p-1.5">😯</button>
+						<button type="button" onclick="insertEmoji('😲')" class="hover:bg-white/10 rounded p-1.5">😲</button>
+						<button type="button" onclick="insertEmoji('😳')" class="hover:bg-white/10 rounded p-1.5">😳</button>
+						<button type="button" onclick="insertEmoji('🥺')" class="hover:bg-white/10 rounded p-1.5">🥺</button>
+						<button type="button" onclick="insertEmoji('😦')" class="hover:bg-white/10 rounded p-1.5">😦</button>
+						<button type="button" onclick="insertEmoji('😧')" class="hover:bg-white/10 rounded p-1.5">😧</button>
+						<button type="button" onclick="insertEmoji('😨')" class="hover:bg-white/10 rounded p-1.5">😨</button>
+						<button type="button" onclick="insertEmoji('😰')" class="hover:bg-white/10 rounded p-1.5">😰</button>
+						<button type="button" onclick="insertEmoji('😥')" class="hover:bg-white/10 rounded p-1.5">😥</button>
+						<button type="button" onclick="insertEmoji('😢')" class="hover:bg-white/10 rounded p-1.5">😢</button>
+						<button type="button" onclick="insertEmoji('😭')" class="hover:bg-white/10 rounded p-1.5">😭</button>
+						<button type="button" onclick="insertEmoji('😱')" class="hover:bg-white/10 rounded p-1.5">😱</button>
+						<button type="button" onclick="insertEmoji('😖')" class="hover:bg-white/10 rounded p-1.5">😖</button>
+						<button type="button" onclick="insertEmoji('😣')" class="hover:bg-white/10 rounded p-1.5">😣</button>
+						<button type="button" onclick="insertEmoji('😞')" class="hover:bg-white/10 rounded p-1.5">😞</button>
+						<button type="button" onclick="insertEmoji('😓')" class="hover:bg-white/10 rounded p-1.5">😓</button>
+						<button type="button" onclick="insertEmoji('😩')" class="hover:bg-white/10 rounded p-1.5">😩</button>
+						<button type="button" onclick="insertEmoji('😫')" class="hover:bg-white/10 rounded p-1.5">😫</button>
+						<button type="button" onclick="insertEmoji('🥱')" class="hover:bg-white/10 rounded p-1.5">🥱</button>
+						<button type="button" onclick="insertEmoji('😤')" class="hover:bg-white/10 rounded p-1.5">😤</button>
+						<button type="button" onclick="insertEmoji('😡')" class="hover:bg-white/10 rounded p-1.5">😡</button>
+						<button type="button" onclick="insertEmoji('😠')" class="hover:bg-white/10 rounded p-1.5">😠</button>
+						<button type="button" onclick="insertEmoji('🤬')" class="hover:bg-white/10 rounded p-1.5">🤬</button>
+						<button type="button" onclick="insertEmoji('😈')" class="hover:bg-white/10 rounded p-1.5">😈</button>
+						<button type="button" onclick="insertEmoji('👿')" class="hover:bg-white/10 rounded p-1.5">👿</button>
+						<button type="button" onclick="insertEmoji('💀')" class="hover:bg-white/10 rounded p-1.5">💀</button>
+						<button type="button" onclick="insertEmoji('💩')" class="hover:bg-white/10 rounded p-1.5">💩</button>
+						<button type="button" onclick="insertEmoji('🤡')" class="hover:bg-white/10 rounded p-1.5">🤡</button>
+						<button type="button" onclick="insertEmoji('👹')" class="hover:bg-white/10 rounded p-1.5">👹</button>
+						<button type="button" onclick="insertEmoji('👺')" class="hover:bg-white/10 rounded p-1.5">👺</button>
+						<button type="button" onclick="insertEmoji('👻')" class="hover:bg-white/10 rounded p-1.5">👻</button>
+						<button type="button" onclick="insertEmoji('👽')" class="hover:bg-white/10 rounded p-1.5">👽</button>
+						<button type="button" onclick="insertEmoji('🤖')" class="hover:bg-white/10 rounded p-1.5">🤖</button>
+						<button type="button" onclick="insertEmoji('🎃')" class="hover:bg-white/10 rounded p-1.5">🎃</button>
+						<button type="button" onclick="insertEmoji('👋')" class="hover:bg-white/10 rounded p-1.5">👋</button>
+						<button type="button" onclick="insertEmoji('🤚')" class="hover:bg-white/10 rounded p-1.5">🤚</button>
+						<button type="button" onclick="insertEmoji('🖐️')" class="hover:bg-white/10 rounded p-1.5">🖐️</button>
+						<button type="button" onclick="insertEmoji('🖖')" class="hover:bg-white/10 rounded p-1.5">🖖</button>
+						<button type="button" onclick="insertEmoji('👌')" class="hover:bg-white/10 rounded p-1.5">👌</button>
+						<button type="button" onclick="insertEmoji('🤌')" class="hover:bg-white/10 rounded p-1.5">🤌</button>
+						<button type="button" onclick="insertEmoji('🤏')" class="hover:bg-white/10 rounded p-1.5">🤏</button>
+						<button type="button" onclick="insertEmoji('✌️')" class="hover:bg-white/10 rounded p-1.5">✌️</button>
+						<button type="button" onclick="insertEmoji('🤞')" class="hover:bg-white/10 rounded p-1.5">🤞</button>
+						<button type="button" onclick="insertEmoji('🤟')" class="hover:bg-white/10 rounded p-1.5">🤟</button>
+						<button type="button" onclick="insertEmoji('🤘')" class="hover:bg-white/10 rounded p-1.5">🤘</button>
+						<button type="button" onclick="insertEmoji('🤙')" class="hover:bg-white/10 rounded p-1.5">🤙</button>
+						<button type="button" onclick="insertEmoji('👈')" class="hover:bg-white/10 rounded p-1.5">👈</button>
+						<button type="button" onclick="insertEmoji('👉')" class="hover:bg-white/10 rounded p-1.5">👉</button>
+						<button type="button" onclick="insertEmoji('👆')" class="hover:bg-white/10 rounded p-1.5">👆</button>
+						<button type="button" onclick="insertEmoji('🖕')" class="hover:bg-white/10 rounded p-1.5">🖕</button>
+						<button type="button" onclick="insertEmoji('👇')" class="hover:bg-white/10 rounded p-1.5">👇</button>
+						<button type="button" onclick="insertEmoji('☝️')" class="hover:bg-white/10 rounded p-1.5">☝️</button>
 						<button type="button" onclick="insertEmoji('👍')" class="hover:bg-white/10 rounded p-1.5">👍</button>
+						<button type="button" onclick="insertEmoji('👎')" class="hover:bg-white/10 rounded p-1.5">👎</button>
+						<button type="button" onclick="insertEmoji('✊')" class="hover:bg-white/10 rounded p-1.5">✊</button>
+						<button type="button" onclick="insertEmoji('👊')" class="hover:bg-white/10 rounded p-1.5">👊</button>
+						<button type="button" onclick="insertEmoji('🤛')" class="hover:bg-white/10 rounded p-1.5">🤛</button>
+						<button type="button" onclick="insertEmoji('🤜')" class="hover:bg-white/10 rounded p-1.5">🤜</button>
+						<button type="button" onclick="insertEmoji('👏')" class="hover:bg-white/10 rounded p-1.5">👏</button>
+						<button type="button" onclick="insertEmoji('🙌')" class="hover:bg-white/10 rounded p-1.5">🙌</button>
+						<button type="button" onclick="insertEmoji('👐')" class="hover:bg-white/10 rounded p-1.5">👐</button>
+						<button type="button" onclick="insertEmoji('🤲')" class="hover:bg-white/10 rounded p-1.5">🤲</button>
+						<button type="button" onclick="insertEmoji('🤝')" class="hover:bg-white/10 rounded p-1.5">🤝</button>
 						<button type="button" onclick="insertEmoji('🙏')" class="hover:bg-white/10 rounded p-1.5">🙏</button>
+						<button type="button" onclick="insertEmoji('✍️')" class="hover:bg-white/10 rounded p-1.5">✍️</button>
+						<button type="button" onclick="insertEmoji('💅')" class="hover:bg-white/10 rounded p-1.5">💅</button>
+						<button type="button" onclick="insertEmoji('🤳')" class="hover:bg-white/10 rounded p-1.5">🤳</button>
+						<button type="button" onclick="insertEmoji('💪')" class="hover:bg-white/10 rounded p-1.5">💪</button>
+						<button type="button" onclick="insertEmoji('🦾')" class="hover:bg-white/10 rounded p-1.5">🦾</button>
+						<button type="button" onclick="insertEmoji('🦿')" class="hover:bg-white/10 rounded p-1.5">🦿</button>
+						<button type="button" onclick="insertEmoji('🦵')" class="hover:bg-white/10 rounded p-1.5">🦵</button>
+						<button type="button" onclick="insertEmoji('🦶')" class="hover:bg-white/10 rounded p-1.5">🦶</button>
+						<button type="button" onclick="insertEmoji('👂')" class="hover:bg-white/10 rounded p-1.5">👂</button>
+						<button type="button" onclick="insertEmoji('👃')" class="hover:bg-white/10 rounded p-1.5">👃</button>
+						<button type="button" onclick="insertEmoji('🧠')" class="hover:bg-white/10 rounded p-1.5">🧠</button>
+						<button type="button" onclick="insertEmoji('🦷')" class="hover:bg-white/10 rounded p-1.5">🦷</button>
+						<button type="button" onclick="insertEmoji('🦴')" class="hover:bg-white/10 rounded p-1.5">🦴</button>
+						<button type="button" onclick="insertEmoji('👀')" class="hover:bg-white/10 rounded p-1.5">👀</button>
+						<button type="button" onclick="insertEmoji('👁️')" class="hover:bg-white/10 rounded p-1.5">👁️</button>
+						<button type="button" onclick="insertEmoji('👅')" class="hover:bg-white/10 rounded p-1.5">👅</button>
+						<button type="button" onclick="insertEmoji('👄')" class="hover:bg-white/10 rounded p-1.5">👄</button>
+						<button type="button" onclick="insertEmoji('💋')" class="hover:bg-white/10 rounded p-1.5">💋</button>
+						<button type="button" onclick="insertEmoji('💘')" class="hover:bg-white/10 rounded p-1.5">💘</button>
+						<button type="button" onclick="insertEmoji('💝')" class="hover:bg-white/10 rounded p-1.5">💝</button>
+						<button type="button" onclick="insertEmoji('💖')" class="hover:bg-white/10 rounded p-1.5">💖</button>
+						<button type="button" onclick="insertEmoji('💗')" class="hover:bg-white/10 rounded p-1.5">💗</button>
+						<button type="button" onclick="insertEmoji('💓')" class="hover:bg-white/10 rounded p-1.5">💓</button>
+						<button type="button" onclick="insertEmoji('💞')" class="hover:bg-white/10 rounded p-1.5">💞</button>
+						<button type="button" onclick="insertEmoji('💕')" class="hover:bg-white/10 rounded p-1.5">💕</button>
+						<button type="button" onclick="insertEmoji('💟')" class="hover:bg-white/10 rounded p-1.5">💟</button>
+						<button type="button" onclick="insertEmoji('❣️')" class="hover:bg-white/10 rounded p-1.5">❣️</button>
+						<button type="button" onclick="insertEmoji('💔')" class="hover:bg-white/10 rounded p-1.5">💔</button>
+						<button type="button" onclick="insertEmoji('❤️')" class="hover:bg-white/10 rounded p-1.5">❤️</button>
+						<button type="button" onclick="insertEmoji('🧡')" class="hover:bg-white/10 rounded p-1.5">🧡</button>
+						<button type="button" onclick="insertEmoji('💛')" class="hover:bg-white/10 rounded p-1.5">💛</button>
+						<button type="button" onclick="insertEmoji('💚')" class="hover:bg-white/10 rounded p-1.5">💚</button>
+						<button type="button" onclick="insertEmoji('💙')" class="hover:bg-white/10 rounded p-1.5">💙</button>
+						<button type="button" onclick="insertEmoji('💜')" class="hover:bg-white/10 rounded p-1.5">💜</button>
+						<button type="button" onclick="insertEmoji('🤎')" class="hover:bg-white/10 rounded p-1.5">🤎</button>
+						<button type="button" onclick="insertEmoji('🖤')" class="hover:bg-white/10 rounded p-1.5">🖤</button>
+						<button type="button" onclick="insertEmoji('🤍')" class="hover:bg-white/10 rounded p-1.5">🤍</button>
 						<button type="button" onclick="insertEmoji('🔥')" class="hover:bg-white/10 rounded p-1.5">🔥</button>
+						<button type="button" onclick="insertEmoji('✨')" class="hover:bg-white/10 rounded p-1.5">✨</button>
+						<button type="button" onclick="insertEmoji('⭐')" class="hover:bg-white/10 rounded p-1.5">⭐</button>
+						<button type="button" onclick="insertEmoji('🌟')" class="hover:bg-white/10 rounded p-1.5">🌟</button>
+						<button type="button" onclick="insertEmoji('💫')" class="hover:bg-white/10 rounded p-1.5">💫</button>
+						<button type="button" onclick="insertEmoji('💥')" class="hover:bg-white/10 rounded p-1.5">💥</button>
+						<button type="button" onclick="insertEmoji('💢')" class="hover:bg-white/10 rounded p-1.5">💢</button>
+						<button type="button" onclick="insertEmoji('💦')" class="hover:bg-white/10 rounded p-1.5">💦</button>
+						<button type="button" onclick="insertEmoji('💨')" class="hover:bg-white/10 rounded p-1.5">💨</button>
+						<button type="button" onclick="insertEmoji('🕳️')" class="hover:bg-white/10 rounded p-1.5">🕳️</button>
+						<button type="button" onclick="insertEmoji('💣')" class="hover:bg-white/10 rounded p-1.5">💣</button>
+						<button type="button" onclick="insertEmoji('💬')" class="hover:bg-white/10 rounded p-1.5">💬</button>
+						<button type="button" onclick="insertEmoji('👁️‍🗨️')" class="hover:bg-white/10 rounded p-1.5">👁️‍🗨️</button>
+						<button type="button" onclick="insertEmoji('🗨️')" class="hover:bg-white/10 rounded p-1.5">🗨️</button>
+						<button type="button" onclick="insertEmoji('🗯️')" class="hover:bg-white/10 rounded p-1.5">🗯️</button>
+						<button type="button" onclick="insertEmoji('💭')" class="hover:bg-white/10 rounded p-1.5">💭</button>
+						<button type="button" onclick="insertEmoji('💤')" class="hover:bg-white/10 rounded p-1.5">💤</button>
+						<button type="button" onclick="insertEmoji('🎉')" class="hover:bg-white/10 rounded p-1.5">🎉</button>
+						<button type="button" onclick="insertEmoji('🎊')" class="hover:bg-white/10 rounded p-1.5">🎊</button>
+						<button type="button" onclick="insertEmoji('🏆')" class="hover:bg-white/10 rounded p-1.5">🏆</button>
+						<button type="button" onclick="insertEmoji('🥇')" class="hover:bg-white/10 rounded p-1.5">🥇</button>
 						<button type="button" onclick="insertEmoji('✅')" class="hover:bg-white/10 rounded p-1.5">✅</button>
 						<button type="button" onclick="insertEmoji('❌')" class="hover:bg-white/10 rounded p-1.5">❌</button>
+						<button type="button" onclick="insertEmoji('⚠️')" class="hover:bg-white/10 rounded p-1.5">⚠️</button>
+						<button type="button" onclick="insertEmoji('❓')" class="hover:bg-white/10 rounded p-1.5">❓</button>
+						<button type="button" onclick="insertEmoji('❗')" class="hover:bg-white/10 rounded p-1.5">❗</button>
+						<button type="button" onclick="insertEmoji('💯')" class="hover:bg-white/10 rounded p-1.5">💯</button>
+						<button type="button" onclick="insertEmoji('💡')" class="hover:bg-white/10 rounded p-1.5">💡</button>
+						<button type="button" onclick="insertEmoji('🔔')" class="hover:bg-white/10 rounded p-1.5">🔔</button>
+						<button type="button" onclick="insertEmoji('🔒')" class="hover:bg-white/10 rounded p-1.5">🔒</button>
+						<button type="button" onclick="insertEmoji('🔓')" class="hover:bg-white/10 rounded p-1.5">🔓</button>
+						<button type="button" onclick="insertEmoji('📌')" class="hover:bg-white/10 rounded p-1.5">📌</button>
+						<button type="button" onclick="insertEmoji('🔗')" class="hover:bg-white/10 rounded p-1.5">🔗</button>
 					</div>
 					
 					<div id="composerStatus" class="hidden text-[10px] text-anon-muted px-1 pb-1"></div>
@@ -1665,8 +1875,9 @@ let volumeStartY=0
 let volumeStartValue=1
 let statusVolumeBeforeMute=1
 let activeMessage =  null
+let recentEmojiDict = []
 
-
+loadStickers(1)
 
 async function loadMoreConversations(){
     if(conversationsLoading||!conversationsHasNext)return
@@ -2370,6 +2581,7 @@ function initAdminConsole() {
 	input?.addEventListener("input", () => {
 		autoResizeComposer();
 		updateComposerState();
+		saveDraft(input.value)
 	});
 	updateComposerState();
 	loadWhatsAppSettings();
@@ -2432,22 +2644,25 @@ function initAdminConsole() {
 		
 			socket.on("presence",data=>{
 
-    const index=conversations.findIndex(
-        x=>x.conversation_key===data.conversation_key
-    )
+			const index=conversations.findIndex(
+				x=>x.conversation_key===data.conversation_key
+			)
 
-    if(index<0)return
+			if(index<0)return
 
-    conversations[index]={
-        ...conversations[index],
-        presence:data.presence,
-        is_online:data.online===true,
-        is_typing:data.typing===true,
-        is_recording:data.recording===true
-    }
+			conversations[index]={
+				...conversations[index],
+				presence:data.presence,
+				is_online:data.online===true,
+				is_typing:data.typing===true,
+				is_recording:data.recording===true,
+				typing_name:data.name || data.push_name || data.phone, 
+			}
 
-    renderConversationsList()
-})
+			createPresenceUI(data.avatar, data.name || data.push_name || data.phone, data.online===true, data.typing===true, data.recording===true, data.conversation_key, data.phone )
+
+			renderConversationsList()
+		})
 
 		socket.on("message",m=>{
 			if(m.client_id){
@@ -2635,6 +2850,54 @@ socket.on("conversation-status", data => {
 	
 	fetchConversations();
 	fetchHealth();
+}
+
+function saveDraft(val){
+	let encoded = btoa(activeThread?.conversation_key)
+	if(activeThread?.conversation_key){
+		val? localStorage.setItem(`dt-${encoded}`, val) : localStorage.removeItem(`dt-${encoded}`)
+	}
+}
+
+
+function createPresenceUI(avatar,name,online,typing,recording,key,phone){
+    if(activeThread.conversation_key!==key)return
+
+    const id=`typing-${btoa(key)}-${phone}`
+    const exists=document.getElementById(id)
+
+    if(exists)exists.remove()
+
+    if(!typing&&!recording)return
+
+    const wrapper=document.createElement('div')
+    wrapper.id=id
+    wrapper.className="flex flex-col w-full items-start"
+
+    wrapper.innerHTML=`
+        <div class="max-w-[85%] sm:max-w-[70%]">
+            <div class="message-bubble group px-4 rounded-tl-none py-1.5 text-xs leading-relaxed shadow-md rounded-xl bg-anon-msgIn text-slate-100 border border-emerald-600/30 privacy-sensitive">
+                ${typing?`
+                    <div class="flex items-center gap-1 py-1">
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                    </div>
+                `:`
+                    <div class="break-words font-sans text-slate-100 py-1">
+                        <i class="fas fa-microphone"></i>
+                    </div>
+                `}
+            </div>
+        </div>
+    `
+
+    const container=el("chatMessagesContainer")
+
+    if(container){
+        container.insertAdjacentElement("beforeend",wrapper)
+        container.scrollTop=container.scrollHeight
+    }
 }
 
 async function retryPendingMessage(id){
@@ -2870,37 +3133,28 @@ function renderConversationsList() {
 			const mediaType = String(x.media_type || "").toLowerCase();
 			const mediaIcon = mediaIcons[mediaType];
 			const mediaLabel = mediaLabels[mediaType];
+			const isGroup = x.jid?.endsWith("@g.us");
+			const isStatus = x.jid?.includes("status@broadcast");
+			const lastMessageIsMine=Number(x.last_from_me)===1;
+			const messageStatus=String(x.last_message_status||"").toLowerCase();
+			const isChannel = x.jid?.endsWith("@newsletter");
+			const isOnline = !isGroup && !isStatus && !isChannel && (
+				x.is_online === true || ["online", "available", "composing", "recording"].includes(String(x.presence || "")
+					.toLowerCase())
+			);
 			
-			const msg = isTyping ?
-				"typing..." :
+			const msg = isTyping && isGroup || isTyping && isChannel ?
+				x.typing_name + " is typing..." : !isGroup && !isStatus && !isChannel && isTyping ? 'typing...' :
 				isRecording ?
-				"recording..." :
+				x.typing_name +" is recording..." :
 				mediaLabel ?
 				x.text || mediaLabel :
 				x.last_message || x.reaction || "Media / Attachment";
-			
 			const msgHtml = mediaIcon ?
 				`<i class="fa-solid ${mediaIcon}"></i> ${escapeHtml(msg)}` :
 				escapeHtml(msg);
 			
-				const lastMessageIsMine=Number(x.last_from_me)===1;
-				const messageStatus=String(x.last_message_status||"").toLowerCase();
-				const statusIcons={
-				pending:["fa-clock","text-anon-muted","Pending"],
-				sent:["fa-check","text-anon-muted","Sent"],
-				delivered:["fa-check","text-anon-muted","Delivered"],
-				read:["fa-check","text-sky-400","Read"],
-				played:["fa-check","text-sky-400","Played"],
-				failed:["fa-circle-exclamation","text-red-400","Failed"]
-			};
-
-			const receipt=statusIcons[messageStatus]||statusIcons.sent;
-
-			const statusHtml=lastMessageIsMine
-				?`<span class="checks ${receipt[1]}" title="${receipt[2]}"><i class="fa-solid ${receipt[0]} text-[11px]"></i>${["delivered","read","played"].includes(messageStatus)?`<i class="fa-solid fa-check text-[11px] -ml-1"></i>`:""}</span>`
-				:"";
-			const isGroup = x.jid?.endsWith("@g.us");
-			const isStatus = x.jid?.includes("status@broadcast");
+				
 			const previewPrefix =
 				x.sender_name ? x.sender_name :
 				isStatus ?
@@ -2912,11 +3166,25 @@ function renderConversationsList() {
 				x.sender_name ? x.sender_name :
 				title;
 			
-			const isChannel = x.jid?.endsWith("@newsletter");
-			const isOnline = !isGroup && !isStatus && !isChannel && (
-				x.is_online === true || ["online", "available", "composing", "recording"].includes(String(x.presence || "")
-					.toLowerCase())
-			);
+			
+			
+			
+			
+				const statusIcons={
+				pending:["fa-clock","text-anon-muted","Pending"],
+				sent:["fa-check","text-anon-muted","Sent"],
+				delivered:["fa-check","text-anon-muted","Delivered"],
+				read:["fa-check","text-sky-400","Read"],
+				played:["fa-check","text-sky-400","Played"],
+				failed:["fa-circle-exclamation","text-red-400","Failed"]
+			};
+
+			const receipt=statusIcons[messageStatus]||statusIcons.sent;
+
+			const statusHtml=lastMessageIsMine && !isTyping
+				?`<span class="checks ${receipt[1]}" title="${receipt[2]}"><i class="fa-solid ${receipt[0]} text-[11px]"></i>${["delivered","read","played"].includes(messageStatus)?`<i class="fa-solid fa-check text-[11px] -ml-1"></i>`:""}</span>`
+				:"";
+			
 			const unreadCount = Math.max(0, Number(x.unread_count || 0));
 			const avatarHexColors=[
 						"DC2626","EA580C","D97706","CA8A04","65A30D","16A34A",
@@ -2947,8 +3215,13 @@ function renderConversationsList() {
 				jid: x.jid || "",
 				title
 			}));
+
+			let dtkey = btoa(x.conversation_key);
+
+			let hasDraft = localStorage.getItem(`dt-${dtkey}`);
+
 			const avatarHtml = imageSrc ?
-				`<img src="${escapeAttr(imageSrc)}" class="w-11 h-11 rounded-xl object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" onclick='openAvatarModal(${avatarPayload}, event)' onerror="this.onerror=null; this.parentNode.innerHTML='<div class=\\'w-11 h-11 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-anon-border flex items-center justify-center text-anon-accent shadow-inner\\'><i class=\\'fa-solid ${iconClass} text-lg\\'></i></div>';">` :
+				`<img src="${escapeAttr(imageSrc)}" onerror="this.src='/icons/dp.png'" class="w-11 h-11 rounded-xl object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" onclick='openAvatarModal(${avatarPayload}, event)' onerror="this.onerror=null; this.parentNode.innerHTML='<div class=\\'w-11 h-11 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-anon-border flex items-center justify-center text-anon-accent shadow-inner\\'><i class=\\'fa-solid ${iconClass} text-lg\\'></i></div>';">` :
 				`<div class="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-anon-border flex items-center justify-center text-anon-accent shadow-inner">
                         <i class="fa-solid ${iconClass} text-lg"></i>
                        </div>`;
@@ -2991,11 +3264,11 @@ function renderConversationsList() {
                                </div>
                    
                                <div class="flex items-center gap-1.5 text-[11px] text-anon-muted truncate">
-                                   ${statusHtml}
+                                   ${ hasDraft ? '' :  isTyping ? '' : statusHtml}
                    
                                    <span class="truncate privacy-sensitive ${String(previewPrefix).startsWith("~") ? "italic" : ""} ${isTyping || isRecording ? "text-anon-accent" : ""}">
-                                       ${!isGroup && !isStatus && !isChannel ? "" : previewPrefix + " :"}
-                                       <span style="font-style:normal;">${msgHtml}</span>
+                                       ${!isGroup && !isStatus && !isChannel ? "" : hasDraft ? '<b class="text-anon-accent font-bold">Draft: </b>' : !isTyping ? `${previewPrefix} : ` : ''}
+                                       <span style="font-style:normal;">${ hasDraft ?  ` <b class="text-anon-accent font-bold">Draft: </b> ${hasDraft}` : msgHtml}</span>
                                    </span>
                    
                                    ${unreadCount ? `
@@ -3031,6 +3304,16 @@ async function openConversation(key, phone='') {
 	if (activeThread?.conversation_key !== key)
 		clearReplyTarget();
 	
+	
+	el("msg-input").val = '';
+	let dtkey = btoa(key)
+
+	const draft = localStorage.getItem(`dt-${dtkey}`);
+
+	el("msg-input").value =  draft ?  draft : '';
+	setTimeout(() => {
+	autoResizeComposer()
+	}, 500);
 
 	activeThread = {
 		phone,
@@ -3081,7 +3364,8 @@ async function openConversation(key, phone='') {
 		.classList.add("flex");
 	
 	el("chatTitle")
-		.innerText =  String(getConversationTitle(conversation)).length > 40 ?   String(getConversationTitle(conversation)).slice(0, 40) + '...' :  String(getConversationTitle(conversation));;
+		.innerText =  String(getConversationTitle(conversation)).length > 40 ?   String(getConversationTitle(conversation)).slice(0, 40) + '...' :  String(getConversationTitle(conversation));
+
 
 	// el("chatSubtitle").innerText = conversation.jid || "Online";
 	el("chatSessionBadge")
@@ -3102,7 +3386,7 @@ async function openConversation(key, phone='') {
 	}));
 	const headerIconEl = el("chatHeaderIcon");
 	if (imageSrc && headerIconEl?.parentElement) {
-		headerIconEl.parentElement.innerHTML = `<img src="${escapeAttr(imageSrc)}" class="w-10 h-10 rounded-full object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" id="chatHeaderIcon" onclick='openAvatarModal(${headerAvatarPayload}, event)'><span id="chatPresenceDot" class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-slate-500 border-2 border-anon-sidebar" title="Offline"></span>`;
+		headerIconEl.parentElement.innerHTML = `<img src="${escapeAttr(imageSrc)}"  onerror="this.src='/icons/dp.png'"  class="w-10 h-10 rounded-full object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" id="chatHeaderIcon" onclick='openAvatarModal(${headerAvatarPayload}, event)'><span id="chatPresenceDot" class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-slate-500 border-2 border-anon-sidebar" title="Offline"></span>`;
 	} else if (headerIconEl) {
 		headerIconEl.className = `fa-solid ${iconClass} text-sm`;
 	}
@@ -3186,7 +3470,7 @@ async function openConversation(key, phone='') {
 							title:getConversationTitle(conversation)
 						}))
 			
-						header.parentElement.innerHTML=`<img src="${escapeAttr(refreshedAvatar)}" class="w-10 h-10 rounded-full object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" id="chatHeaderIcon" onclick='openAvatarModal(${refreshedAvatarPayload}, event)'><span id="chatPresenceDot" class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-slate-500 border-2 border-anon-sidebar" title="Offline"></span>`
+						header.parentElement.innerHTML=`<img src="${escapeAttr(refreshedAvatar)}"  onerror="this.src='/icons/dp.png'"  class="w-10 h-10 rounded-full object-cover border border-anon-border cursor-zoom-in" title="Open full-resolution image" id="chatHeaderIcon" onclick='openAvatarModal(${refreshedAvatarPayload}, event)'><span id="chatPresenceDot" class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-slate-500 border-2 border-anon-sidebar" title="Offline"></span>`
 					}
 			
 					setPresenceDot(conversation)
@@ -3612,9 +3896,9 @@ function renderNormalMessages(messages){
                     <div class="flex flex-col w-full ${self?"items-end":"items-start"}">
                         <div class="max-w-[85%] sm:max-w-[70%]">
 							<div class="flex gap-2">
-								${!self&&!isGroup?`
+								${!self&&  isGroup?`
 								<div onclick="openAvatarModal({'session':'${adminSessionId}','jid':'${escapeAttr(m.sender||"")}','title':'${escapeAttr(sender)}'},event)">
-									<img src="${escapeAttr(avatarUrl)}" class="w-10 h-10 min-w-[40px] rounded-full object-cover cursor-pointer" alt="${escapeAttr(sender)}" onerror="this.onerror=null;this.src='https://placehold.co/400x400/${avatarBg}/FFFFFF?text=${encodeURIComponent(initial)}&font=roboto'">
+									<img src="${escapeAttr(avatarUrl)}" class="w-10 h-10 min-w-[40px] rounded-full object-cover cursor-pointer" alt="${escapeAttr(sender)}"  onerror="this.src='/icons/dp.png'" >
 								</div>`:""}
 
                            <div class="message-bubble p-2 rounded-xl ${self?"bg-anon-msgOut rounded-tr-none":"bg-anon-msgIn rounded-tl-none"}" style="max-width:400px"  oncontextmenu='openMessageContextMenu(${messagePayload},event,${mediaPayload});return false;'>
@@ -3787,7 +4071,7 @@ function renderNormalMessages(messages){
 						${!self && !isGroup || self && isGroup  || !isGroup ?   '': `
 					<div onclick="openAvatarModal({'session':'${adminSessionId}','jid':'${String(m.sender||"").replaceAll("'","").replaceAll('"',"")}','title':'${String(m.push_name||"").replaceAll("'","").replaceAll('"',"")}'},event)">
 						
-					<img src="${escapeAttr(avatarUrl)}" class="w-8 min-h-[40px] min-w-[40px] h-8 cursor-pointer rounded-full object-cover ${avatarColor}"    alt="${escapeAttr(m.push_name||"User")}" onerror="this.src='https://placehold.co/400x400/${avatarBg}/FFFFFF?text=${encodeURIComponent(initial)}&font=roboto'">
+					<img src="${escapeAttr(avatarUrl)}" class="w-8 min-h-[40px] min-w-[40px] h-8 cursor-pointer rounded-full object-cover ${avatarColor}"    alt="${escapeAttr(m.push_name||"User")}"  onerror="this.src='/icons/dp.png'" >
 					</div> `}
                     <div class="message-bubble privacy-sensitive group p-2 text-xs leading-relaxed shadow-md rounded-xl ${self?"bg-anon-msgOut rounded-tr-none border border-emerald-600/30":"bg-anon-msgIn rounded-tl-none border border-slate-700/40"}"
                         data-swipe-reply="true"
@@ -3806,7 +4090,7 @@ function renderNormalMessages(messages){
 						${self && isGroup ? `
 					<div onclick="openAvatarModal({'session':'${adminSessionId}', 'jid': '${m.sender }', 'title':'${m.push_name}',event})"> 
 						
-					<img src="${escapeAttr(avatarUrl)}" class="w-8 min-h-[40px] min-w-[40px] h-8 cursor-pointer rounded-full object-cover ${avatarColor}"    alt="${escapeAttr(m.push_name||"User")}" onerror="this.src='https://placehold.co/400x400/${avatarBg}/FFFFFF?text=${encodeURIComponent(initial)}&font=roboto'">
+					<img src="${escapeAttr(avatarUrl)}" class="w-8 min-h-[40px] min-w-[40px] h-8 cursor-pointer rounded-full object-cover ${avatarColor}"    alt="${escapeAttr(m.push_name||"User")}"  onerror="this.src='/icons/dp.png'" >
 					</div> ` : ''}
 					</div>
                     ${reactionHtml?`<div class="flex flex-wrap gap-1 ${isGroup ? 'ml-[50px]' : ''} mt-1 ${self?"justify-end mr-1":"ml-1"}">${reactionHtml}</div>`:""}
@@ -4304,7 +4588,7 @@ function renderChatThread(messages, isLoading = false) {
 								<div class="flex items-center gap-3 min-w-0">
 									<div class="relative w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-emerald-500 to-teal-300 shrink-0">
 										${avatarPic
-											? `<img src="${escapeAttr(avatarPic)}" class="w-full h-full rounded-full object-cover border border-black">`
+											? `<img src="${escapeAttr(avatarPic)}"  onerror="this.src='/icons/dp.png'"  class="w-full h-full rounded-full object-cover border border-black">`
 											: `<div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-anon-accent text-xs border border-black"><i class="fa-solid fa-user"></i></div>`
 										}
 									</div>
@@ -5545,7 +5829,7 @@ function closeStickerModal() {
 }
 
 function closeContextMenus() {
-            ["messageContextMenu", "chatContextMenu"].forEach(id => {
+            ["messageContextMenu", "chatContextMenu", "pendingMessageContextMenu"].forEach(id => {
 		const menu = el(id);
 		if (menu) {
 			menu.classList.add("hidden");
@@ -5825,7 +6109,20 @@ function bindSwipeReply() {
 		};
 		bubble.setPointerCapture?.(event.pointerId);
 	});
-	
+
+	window.addEventListener('keydown',(e)=>{
+		if(e.key.toLowerCase() === 'escape'){
+			e.preventDefault()
+			handleChatAction('close')
+			closeContextMenus()
+			closeAvatarModal()
+			closeMediaModal()
+			closeStatusContactPicker()
+			closeReactionModal()
+			closeStatusDayModal()
+		}
+    })
+
 	container.addEventListener("pointermove", event => {
 
 		if (!gesture || event.pointerId !== gesture.pointerId) return;
@@ -6102,18 +6399,52 @@ function handleAttachmentChange(event){
     );
 
     updateComposerState();
+
 }
-function insertEmoji(emoji) {
-	const input = el("msg-input");
-	if (!input) return;
-	
-	const start = input.selectionStart ?? input.value.length;
-	const end = input.selectionEnd ?? input.value.length;
-	input.value = input.value.slice(0, start) + emoji + input.value.slice(end);
-	input.selectionStart = input.selectionEnd = start + emoji.length;
-	input.focus();
-	autoResizeComposer();
-	updateComposerState();
+function renderRecentEmojis(){
+    const recents=el("recentEmojis")
+    if(!recents)return
+
+    recents.querySelector('.emojis').innerHTML=""
+    recentEmojiDict.forEach(e=>{
+        const btn=document.createElement("button")
+        btn.type="button"
+        btn.textContent=e
+        btn.addEventListener("click",()=>insertEmoji(e, false))
+        recents.querySelector('.emojis').appendChild(btn)
+    })
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+    recentEmojiDict=JSON.parse(localStorage.getItem("recentEmojis")||"[]")
+    renderRecentEmojis()
+})
+
+
+function saveRecentEmoji(emoji, reload){
+    recentEmojiDict=recentEmojiDict.filter(e=>e!==emoji)
+    recentEmojiDict.unshift(emoji)
+    recentEmojiDict=recentEmojiDict.slice(0,20)
+
+    localStorage.setItem("recentEmojis",JSON.stringify(recentEmojiDict))
+    reload ? renderRecentEmojis() : ''
+}
+
+function insertEmoji(emoji, reload=true){
+    const input=el("msg-input")
+    if(!input)return
+
+    const start=input.selectionStart??input.value.length
+    const end=input.selectionEnd??input.value.length
+
+    input.value=input.value.slice(0,start)+emoji+input.value.slice(end)
+    input.selectionStart=input.selectionEnd=start+emoji.length
+
+    saveRecentEmoji(emoji, reload)
+
+    input.focus()
+    autoResizeComposer()
+    updateComposerState()
 }
 
 function toggleEmojiMenu() {
@@ -6123,6 +6454,10 @@ function toggleEmojiMenu() {
 	}, 50)
 	el("mediaSelector")
 		?.classList.contains('hidden') ? '' : toggleMediaSelector()
+	el("stickerMenu")
+		?.classList.contains('hidden') ? '' : toggleStickerMenu()
+
+	renderRecentEmojis()
 }
 
 function addStickers(urls) {
@@ -6131,17 +6466,17 @@ function addStickers(urls) {
 		const button = document.createElement("button")
 		button.type = "button"
 		button.onclick = () => sendSticker(button)
-		button.innerHTML = `<img src="${url}" class="w-12 h-12 object-contain">`
+		button.innerHTML = `<img src="${url}" class="w-16 h-16 object-contain">`
 		menu.appendChild(button)
 	})
 }
 
-async function loadStickers() {
+async function loadStickers(page) {
 	if (stickerLoading || !stickerHasMore) return
 	stickerLoading = true
 	
 	try {
-		const r = await fetch(`/api/stickers?page=${stickerPage}`)
+		const r = await fetch(`/api/stickers?page=${page || stickerPage}`)
 		const data = await r.json()
 		
 		if (!data.success) return
@@ -6156,8 +6491,7 @@ async function loadStickers() {
 		
 		stickerHasMore = data.has_more
 		stickerPage++
-		
-		localStorage.setItem("stickerPage", stickerPage)
+		localStorage.setItem("stickerPage", page++ || stickerPage)
 		localStorage.setItem("stickerHasMore", stickerHasMore)
 	} catch (err) {
 		console.error("Failed to load stickers:", err)
@@ -6296,18 +6630,23 @@ async function deletePendingMessage(id){
     const db=await pendingDB
 
 
+	let el = document.querySelector(`[data-pending-id='${id}']`)
+
+	console.log(el, '-------------------', id)
+
     return new Promise((resolve,reject)=>{
         const tx=db.transaction("pendingMessages","readwrite")
         tx.objectStore("pendingMessages").delete(id)
         tx.oncomplete=resolve
         tx.onerror=()=>reject(tx.error)
+		if(el) el.remove()
     })
 }
 
-function toggleStickerMenu() {
+async function toggleStickerMenu() {
+	localStorage.setItem('stickerPage', 1)
 	const menu = document.getElementById("stickerMenu")
 	setTimeout(() => {
-		
 		menu.classList.toggle("hidden")
 	}, 50)
 	const modal = el('mediaSelector')
@@ -6582,15 +6921,19 @@ async function sendComposerMessage(event){
             document.getElementById(uploadUI.id)?.remove();
         }
 
-        if(input){
-            input.value="";
-            input.style.height="auto";
-        }
+        
 
         clearAttachment();
         clearReplyTarget();
         el("emojiMenu")?.classList.add("hidden");
         setComposerStatus("Message sent.","success");
+		if(input){
+            input.value="";
+            input.style.height="auto";
+        }
+
+		localStorage.removeItem(`dt-${btoa(conversationKey)}`)
+
     }catch(error){
         setComposerStatus(error.message||"Message could not be sent","error");
     }finally{
@@ -6698,6 +7041,26 @@ function createUploadingMessage(msg, pending){
             </div>
         </div>
     `
+	wrapper.oncontextmenu = (event) => {
+		const menus = document.querySelectorAll("#pendingMessageContextMenu")
+		menus.forEach(m=>{
+			m.remove()
+		})
+		const menu = document.createElement('div')
+		menu.id = 'pendingMessageContextMenu'
+		menu.className="context-menu fixed z-[999] w-[200px] hidden rounded-sm border border-slate-700/80 bg-slate-900/95 p-0.5 backdrop-blur-xl"
+		
+		menu.innerHTML = `
+		<div class="border-t border-slate-700/70 p-4 gap-2 flex-col flex">
+			<button type="button" class="context-menu-action" onclick="retryPendingMessage('${msg.id}'); closeContextMenus()"><i class="fa-solid fa-refresh"></i><span>Retry</span></button>
+			<button type="button" class="context-menu-action bg-red-600" onclick="deletePendingMessage('${msg.id}')"><i class="fa-solid fa-trash"></i><span>Delete</span></button>
+			</div>		
+		`
+		document.body.appendChild(menu)
+		event?.preventDefault?.();
+		event?.stopPropagation?.();
+		positionContextMenu(el("pendingMessageContextMenu"), event?.clientX || 12, event?.clientY || 12);
+	}
 
     const container=el("chatMessagesContainer")
 
@@ -7323,6 +7686,7 @@ document.addEventListener("DOMContentLoaded",()=>{
             }
         })
     })
+
 })
 	</script>
 </body>

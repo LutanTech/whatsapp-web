@@ -7,7 +7,7 @@ const path = require("path")
 const sharp = require("sharp")
 const cookieParser = require("cookie-parser")
 const { generateWAMessageFromContent, proto }=require("@whiskeysockets/baileys")
-const { pair, logout, restoreSessions, getSessions, getSession,createSession, getPresence, isOnlinePresence, requestPresence, setSessionEventEmitter, createQRSession, setJwt, getContact } = require("./lib/sessions")
+const { pair, logout, restoreSessions, getSessions, getSession,createSession, getPresence, isOnlinePresence, requestPresence, setSessionEventEmitter, createQRSession, setJwt, getContact, getFavoriteStickers } = require("./lib/sessions")
 const { refreshConversationAvatar } = require("./lib/avatar-refresh")
 const { all, run, get } = require("./lib/database")
 const { recordMessage, conversationKey, setMessageEmitter } = require("./lib/messages")
@@ -542,11 +542,11 @@ app.post("/api/pageReload/", (req, res) => {
 
 
 app.get("/sticker/:file_name",(req,res)=>{
-    res.sendFile(path.join(__dirname,"lib","uploads","stickers",req.params.file_name))
+    res.sendFile(path.join(__dirname,"lib","uploads","stickers","favorites",req.params.file_name))
 })
 
 app.get("/api/stickers",(req,res)=>{
-    const dir=path.join(__dirname,"lib","uploads","stickers")
+    const dir=path.join(__dirname,"lib","uploads","stickers", "favorites")
     const page=Math.max(1,Number(req.query.page)||1)
     const limit=20
 
@@ -2232,6 +2232,7 @@ app.post("/api/messages/send",requireSession, async(req,res)=>{
                     "lib",
                     "uploads",
                     "stickers",
+                    "favorites",
                     fileName
                 )
 
@@ -2892,6 +2893,22 @@ io.on("connection",socket=>{
     })
 
 })
+
+
+app.get("/favorite-stickers",async(req,res)=>{
+    try{
+        const session=await getCookieSession(req)
+        if(!session)return res.status(404).json({error:"Session not found"})
+
+        const stickers=await getFavoriteStickers(session)
+
+        res.json({count:stickers.length,stickers})
+    }catch(e){
+        res.status(500).json({error:e.message})
+    }
+})
+
+
 app.get("/api/restart",async(req,res)=>{
     res.json({success:true,message:"Restarting..."});
     await updateNames()
