@@ -2928,7 +2928,6 @@ function createPresenceUI(avatar,name,online,typing,recording,key,phone){
 
     if(container){
         container.insertAdjacentElement("beforeend",wrapper)
-        container.scrollTop=container.scrollHeight
     }
 }
 
@@ -6676,6 +6675,7 @@ async function deletePendingMessage(id){
 }
 
 async function toggleStickerMenu() {
+	loadStickers(1)
 	localStorage.setItem('stickerPage', 1)
 	const menu = document.getElementById("stickerMenu")
 	setTimeout(() => {
