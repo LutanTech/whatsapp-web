@@ -1260,7 +1260,7 @@ body.theme-emerald #chatMessagesContainer {
 					<button onclick="openModal('importModal')" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors" title="Import Contacts">
 						<i class="fa-solid fa-cloud-download text-base"></i>
 					</button>
-					<button onclick="updateNames()" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors" title="Update Names">
+					<button onclick="updateNames(this)" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors" title="Update Names">
 						<i class="fa-solid fa-refresh text-base"></i>
 					</button>
 					<button onclick="closeModal('contactsModal')" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors" title="Close">
@@ -1598,7 +1598,7 @@ body.theme-emerald #chatMessagesContainer {
 		<i class="fa-solid fa-user-plus text-xs"></i>
 	</button> -->
 	
-	<div id="saveContactModal" class="hidden fixed inset-0 z-[100] items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+	<div id="saveContactModal" class="hidden fixed inset-0 z-[99999] items-center justify-center bg-black/70 backdrop-blur-sm p-4">
 		<div class="w-full max-w-sm bg-anon-sidebar border border-anon-border rounded-xl shadow-2xl overflow-hidden">
 			<div class="px-5 py-4 border-b border-anon-border flex items-center justify-between">
 				<div>
@@ -1610,7 +1610,7 @@ body.theme-emerald #chatMessagesContainer {
 				</button>
 			</div>
 	
-			<form onsubmit="saveActiveContact(event)" class="p-5 space-y-4">
+			<form id="saveForm" onsubmit="saveActiveContact(event)" class="p-5 space-y-4">
 				<div>
 					<label class="block text-[10px] font-semibold text-anon-muted uppercase tracking-wider mb-1.5">Name</label>
 					<input id="saveContactName" type="text" autocomplete="off" class="w-full h-10 px-3 rounded-lg bg-anon-panel border border-anon-border text-xs text-anon-text outline-none focus:border-anon-accent/60" placeholder="Contact name">
@@ -1926,13 +1926,33 @@ async function isContactSaved(phone){
     return contacts.some(c=>String(c.phone||"").replace(/\D/g,"")===String(phone||"").replace(/\D/g,""))
 }
 
+function updateNames(btn){
+	btn.querySelector('i').classList.add('fa-spin')
+	fetch('/api/names/update')
+	.then(r=>r.json())
+	.then(data=>{
+		if(data.success){
+			alert('updated')
+		}
+		else(alert('error updating'))
+	btn.querySelector('i').classList.remove('fa-spin')
+
+	})
+	.catch(err=>{
+		alert('err occured')
+	btn.querySelector('i').classList.remove('fa-spin')
+
+	})
+}
+
 async function updateContactButton(phone){
     const button=document.getElementById("saveContactBtn")
     if(!button )return
-    if(!phone || phone.length > 12){
-		button.style.display = "none"
-		return
-	}
+
+    // if(!phone || phone.length > 12){
+	// 	button.style.display = "none"
+	// 	return
+	// }
 
     const c=conversations.find(x=>x.conversation_key===activeThread?.conversation_key)||activeThread
     const saved= await isContactSaved(phone)
@@ -1942,10 +1962,13 @@ async function updateContactButton(phone){
     button.title=saved?"Settings":"Save Contact"
 }
 
-function openSaveContactModal(){
+function openSaveContactModal(jid=null){
+	if(jid){
+		el("saveForm").setAttribute('onsubmit', `saveActiveContact(event, '${jid}')`)
+	}
     const c=conversations.find(x=>x.conversation_key===activeThread?.conversation_key)||activeThread
 
-    if(!c?.jid)
+    if(!c?.jid || !jid)
         return showToast("No contact selected")
 
     document.getElementById("saveContactName").value=c.chat_name||c.sender_name||c.push_name||""
@@ -1964,7 +1987,7 @@ function closeSaveContactModal(){
     modal.classList.remove("flex")
 }
 
-async function saveActiveContact(event){
+async function saveActiveContact(event, jid){
     event.preventDefault()
 
     const c=conversations.find(x=>x.conversation_key===activeThread?.conversation_key)||activeThread
@@ -1984,7 +2007,7 @@ async function saveActiveContact(event){
             headers:{"Content-Type":"application/json"},
             body:JSON.stringify({
                 name,
-                jid:c.jid,
+                jid:jid || c.jid,
                 email,
                 session:c.session_id||c.session_phone||null
             })
@@ -4393,9 +4416,9 @@ async function getUserAbout(jid){
                     <div class="text-[10px] uppercase text-anon-muted">WhatsApp</div>
                     <div class="text-sm font-semibold text-anon-text mt-1">${data.exists?"Available":"Not found"}</div>
                 </div>
-                <div class="bg-anon-panel rounded-xl p-3">
-                    <div class="text-[10px] uppercase text-anon-muted">Presence</div>
-                    <div class="text-sm font-semibold text-anon-text mt-1">${escapeHtml(data.presence||"Unknown")}</div>
+                <div class="bg-anon-panel rounded-xl p-3 cursor-pointer bg-anon-accent/40 hover:bg-anon-accent/70" onclick="openSaveContactModal('${data.jid}')">
+                    <div class="text-[10px] uppercase text-anon-muted">${data.is_saved ? 'Edit Contact' : 'Save Contact'}</div>
+                    <div class="text-sm font-semibold text-anon-text mt-1">${data.is_saved ? '<i class="fas fa-user-pen mr-2"></i> Edit Contact' : '  <i class="fas fa-user-plus mr-2"></i> Save Contact'}</div>
                 </div>
             </div>
 

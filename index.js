@@ -1471,6 +1471,13 @@ app.get("/api/user/about",async(req,res)=>{
             resolvedJid=r?.[0]?.jid||phoneJid
         }catch{}
 
+        let is_saved=false
+
+        try{
+            const saved=await getStoredContact(resolvedJid)
+            is_saved=!!saved
+        }catch{}
+
         let about=""
         try{
             const r=await withTimeout(sock.fetchStatus(resolvedJid))
@@ -1521,6 +1528,7 @@ app.get("/api/user/about",async(req,res)=>{
             phone
 
         return res.json({
+            is_saved,
             success:true,
             jid:resolvedJid,
             phone,
@@ -2906,10 +2914,15 @@ app.get("/favorite-stickers",async(req,res)=>{
     }
 })
 
+app.get('/api/names/update', async(req, res)=>{
+    await updateNames()
+    return res.json({success:true,message:"Updated"})
+})
+
 
 app.get("/api/restart",async(req,res)=>{
     res.json({success:true,message:"Restarting..."});
-    await updateNames()
+    
     setTimeout(()=>{
 
         process.exit(0);
