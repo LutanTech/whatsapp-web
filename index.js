@@ -1426,8 +1426,47 @@ app.get("/api/conversations/:key", requireSession, async (req, res) => {
     }
 })
 
+app.get("/api/user/availability",authenticateApiKey,async(req,res)=>{
+    try{
+        let phone=String(req.query.phone||"").trim()
+
+        if(!phone)return res.status(400).json({success:false,error:"Missing phone number"})
+
+        phone=phone.replace(/\D/g,"")
+
+        if(phone.startsWith("0"))phone="254"+phone.slice(1)
+
+        if(!/^\d{8,15}$/.test(phone)){
+            return res.status(400).json({success:false,error:"Invalid phone number"})
+        }
+
+        const session=req.apiSession
+
+        if(!session?.sock){
+            return res.status(404).json({success:false,error:"WhatsApp session not connected"})
+        }
+
+        const result=await withTimeout(
+            session.sock.onWhatsApp(`${phone}@s.whatsapp.net`)
+        )
+
+        return res.json({
+            success:true,
+            phone,
+            available:!!result?.[0]?.exists
+        })
+    }catch(error){
+        console.error("[AVAILABILITY]",error)
+
+        return res.status(500).json({
+            success:false,
+            error:error?.message||"Availability check failed"
+        })
+    }
+})
 
 const withTimeout=(p,ms=5000)=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error("Timeout")),ms))])
+
 
 app.get("/api/user/about",async(req,res)=>{
     try{
