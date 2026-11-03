@@ -1224,6 +1224,37 @@ body.theme-emerald #chatMessagesContainer {
 		</div>
 	</div>
 
+	<div id="userMediaModal" class="fixed inset-0 bg-black/80 z-[9999] max-h-[100vh] hidden backdrop-blur-md items-center justify-center  transition-all duration-200">
+		<div class="glass-modal max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col border border-anon-border animate-pop-in h-[98vh]">
+			<div class="p-5 bg-anon-sidebar border-b border-anon-border flex justify-between items-center">
+				<h3 class="font-bold text-sm text-anon-text flex items-center gap-2">
+					<i class="fas fa-gallery text-anon-accent"></i> Media
+				</h3>
+				<button onclick="closeModal('userMediaModal')" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors">
+					<i class="fa-solid fa-xmark text-base"></i>
+				</button>
+			</div>
+			
+			<div class="p-6 space-y-5 overflow-y-auto max-h-[98vh] scrollbar-thin " id="all-media-div"></div>
+		</div>
+	</div>
+
+	<div id="userLinksModal" class="fixed inset-0 bg-black/80 z-[9999] max-h-[100vh] hidden backdrop-blur-md items-center justify-center  transition-all duration-200">
+		<div class="glass-modal max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col border border-anon-border animate-pop-in h-[98vh]">
+			<div class="p-5 bg-anon-sidebar border-b border-anon-border flex justify-between items-center">
+				<h3 class="font-bold text-sm text-anon-text flex items-center gap-2">
+					<i class="fas fa-link-alt text-anon-accent"></i> Links
+				</h3>
+				<button onclick="closeModal('userLinksModal')" class="w-8 h-8 rounded-lg hover:bg-anon-panel text-anon-muted hover:text-anon-text flex items-center justify-center transition-colors">
+					<i class="fa-solid fa-xmark text-base"></i>
+				</button>
+			</div>
+			
+			<div class="p-6 space-y-5 overflow-y-auto max-h-[98vh] scrollbar-thin " id="all-user-links"></div>
+		</div>
+	</div>
+
+
 	<div id="apiKeysModal" class="fixed inset-0 bg-black/80 z-[9999] hidden backdrop-blur-md items-center justify-center">
 		<div class="glass-modal max-w-2xl w-full h-[98vh] shadow-2xl overflow-hidden flex flex-col border border-anon-border">
 			<div class="p-5 bg-anon-sidebar border-b border-anon-border flex justify-between items-center">
@@ -4410,12 +4441,23 @@ async function getUserAbout(jid){
                 </div>
             `:""}
 
-            <div class="grid grid-cols-2 gap-3">
-                <div class="bg-anon-panel rounded-xl p-3">
-                    <div class="text-[10px] uppercase text-anon-muted">WhatsApp</div>
-                    <div class="text-sm font-semibold text-anon-text mt-1">${data.exists?"Available":"Not found"}</div>
-                </div>
-                <div class="bg-anon-panel rounded-xl p-3 cursor-pointer bg-anon-accent/40 hover:bg-anon-accent/70" onclick="openSaveContactModal('${data.jid}')">
+            <div class="grid grid-cols-3 gap-2">
+                <div class="bg-anon-panel rounded-xl p-3 cursor-pointer hover:bg-anon-accent/40 transition" onclick="openUserMedia('${jid}', '${escapeAttr(activeThread.conversation_key)}')">
+					<div class="text-[10px] uppercase text-anon-muted">Media</div>
+					<div class="text-sm font-semibold text-anon-text mt-1">
+						<i class="fas fa-photo-film mr-2"></i> View Media
+						<i class="fas fa-chevron-right text-xs ml-1"></i>
+					</div>
+				</div>
+				<div class="bg-anon-panel rounded-xl p-3 cursor-pointer hover:bg-anon-accent/40 transition"
+					onclick="openUserLinks('${escapeAttr(data.lid||"")}','${escapeAttr(activeThread.conversation_key)}')">
+					<div class="text-[10px] uppercase text-anon-muted">Links</div>
+					<div class="text-sm font-semibold text-anon-text mt-1">
+						<i class="fas fa-link mr-2"></i> View Links
+						<i class="fas fa-chevron-right text-xs ml-1"></i>
+					</div>
+				</div>
+                <div class="bg-anon-panel rounded-xl p-3 cursor-pointer text-sm bg-anon-accent/40 hover:bg-anon-accent/70" onclick="openSaveContactModal('${data.jid}')">
                     <div class="text-[10px] uppercase text-anon-muted">${data.is_saved ? 'Edit Contact' : 'Save Contact'}</div>
                     <div class="text-sm font-semibold text-anon-text mt-1">${data.is_saved ? '<i class="fas fa-user-pen mr-2"></i> Edit Contact' : '  <i class="fas fa-user-plus mr-2"></i> Save Contact'}</div>
                 </div>
@@ -4438,6 +4480,7 @@ async function getUserAbout(jid){
                 <div class="flex justify-between text-xs gap-4"><span class="text-anon-muted">LID</span><span class="text-anon-text break-all">${escapeHtml(data.lid||"Not available")}</span></div>
                 <div class="flex justify-between text-xs"><span class="text-anon-muted">Verified</span><span class="text-anon-text">${data.verified?"Yes":"No"}</span></div>
             </div>
+
         `
     }catch(error){
         console.error(error)
@@ -4448,6 +4491,289 @@ async function getUserAbout(jid){
 function isStatusViewed(item) {
 	return Boolean(item.read_at || viewedStatusesSet.has(item.id));
 }
+
+
+let userMediaState={
+    lid:null,
+    key:null,
+    before:0,
+    hasMore:false,
+    loading:false,
+    gallery:[]
+}
+
+async function openUserMedia(lid,key,loadMore=false){
+    if(!lid||!key||userMediaState.loading)return
+
+    if(!loadMore){
+        userMediaState={
+            lid,
+            key,
+            before:0,
+            hasMore:false,
+            loading:false,
+            gallery:[]
+        }
+
+        openModal("userMediaModal")
+    }
+
+    const container=el("all-media-div")
+    if(!container)return
+
+    userMediaState.loading=true
+
+    if(!loadMore){
+        container.innerHTML=`
+            <div class="flex justify-center py-12 text-anon-muted">
+                <i class="fas fa-spinner fa-spin text-2xl"></i>
+            </div>
+        `
+    }
+
+    try{
+        const params=new URLSearchParams({
+            lid,
+            limit:"50"
+        })
+
+        if(loadMore&&userMediaState.before){
+            params.set("before",userMediaState.before)
+        }
+
+        const res=await fetch(`/api/user/media/${encodeURIComponent(key)}?${params}`)
+        const data=await res.json()
+
+        if(!res.ok||!data.success){
+            throw new Error(data.error||"Failed to load media")
+        }
+
+        const gallery=data.media.map(media=>({
+            src:media.media_path,
+            type:["ptt","voice"].includes(media.media_type)?"audio":media.media_type,
+            mimeType:media.mime_type||(
+                media.media_type==="video"?"video/mp4":
+                media.media_type==="audio"?"audio/ogg":
+                "application/octet-stream"
+            )
+        }))
+
+        const startIndex=userMediaState.gallery.length
+
+        userMediaState.gallery.push(...gallery)
+        userMediaState.before=data.next_before
+        userMediaState.hasMore=data.has_more
+
+        let html=""
+
+        data.media.forEach((media,index)=>{
+            const path=escapeAttr(media.media_path||"")
+            const type=gallery[index].type
+            const date=new Date(media.created_at*1000).toLocaleDateString()
+            const globalIndex=startIndex+index
+
+            if(type==="image"){
+                html+=`
+                    <div class="relative bg-anon-panel rounded-lg overflow-hidden cursor-pointer media-gallery-item" data-index="${globalIndex}">
+                        <img src="${path}" loading="lazy" class="w-full h-32 sm:h-40 object-cover">
+                        <div class="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-[10px] text-white">${date}</div>
+                    </div>
+                `
+            }else if(type==="video"){
+                html+=`
+                    <div class="relative bg-anon-panel rounded-lg overflow-hidden cursor-pointer media-gallery-item" data-index="${globalIndex}">
+                        <video muted preload="metadata" class="w-full h-32 sm:h-40 object-cover pointer-events-none">
+                            <source src="${path}" type="${escapeAttr(gallery[index].mimeType)}">
+                        </video>
+                        <div class="absolute inset-0 flex items-center justify-center bg-black/20">
+                            <i class="fas fa-play-circle text-white text-3xl"></i>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-[10px] text-white">${date}</div>
+                    </div>
+                `
+            }else if(type==="audio"){
+                html+=`
+                    <div class="bg-anon-panel rounded-lg p-3 cursor-pointer media-gallery-item" data-index="${globalIndex}">
+                        <div class="flex items-center gap-3 h-24">
+                            <i class="fas fa-circle-play text-3xl text-anon-muted"></i>
+                            <div class="text-xs text-anon-text">Audio</div>
+                        </div>
+                    </div>
+                `
+            }else{
+                html+=`
+                    <div class="bg-anon-panel rounded-lg p-3 cursor-pointer media-gallery-item" data-index="${globalIndex}">
+                        <div class="flex items-center gap-3 h-24">
+                            <i class="fas fa-file-lines text-2xl text-anon-muted"></i>
+                            <div class="text-xs text-anon-text truncate">${escapeHtml(media.file_name||"Document")}</div>
+                        </div>
+                    </div>
+                `
+            }
+        })
+
+        let grid=container.querySelector("#user-media-grid")
+
+        if(!grid){
+            container.innerHTML=`
+                <div class="text-xs text-anon-muted mb-3" id="user-media-count">Media</div>
+                <div id="user-media-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+                <div id="user-media-more" class="flex justify-center pt-5"></div>
+            `
+
+            grid=container.querySelector("#user-media-grid")
+        }
+
+        grid.insertAdjacentHTML("beforeend",html)
+
+        container.querySelector("#user-media-count").textContent=
+            `${userMediaState.gallery.length} media items`
+
+        const more=container.querySelector("#user-media-more")
+
+        more.innerHTML=userMediaState.hasMore?`
+            <button onclick="openUserMedia(userMediaState.lid,userMediaState.key,true)"
+                class="px-5 py-2.5 rounded-lg bg-anon-panel text-anon-text text-xs font-semibold hover:bg-anon-accent/30 transition">
+                <i class="fas fa-chevron-down mr-2"></i>Load More
+            </button>
+        `:""
+
+        grid.querySelectorAll(".media-gallery-item").forEach(item=>{
+            if(item.dataset.bound)return
+
+            item.dataset.bound="1"
+
+            item.addEventListener("click",()=>{
+                const index=Number(item.dataset.index)
+                const media=userMediaState.gallery[index]
+
+                openMediaModal(
+                    media.src,
+                    media.type,
+                    media.mimeType,
+                    userMediaState.gallery,
+                    index
+                )
+            })
+        })
+
+    }catch(error){
+        console.error("[USER MEDIA]",error)
+
+        const more=container.querySelector("#user-media-more")
+
+        if(more){
+            more.innerHTML=`
+                <button onclick="openUserMedia(userMediaState.lid,userMediaState.key,true)"
+                    class="px-5 py-2.5 rounded-lg bg-red-600/20 text-red-400 text-xs">
+                    Retry loading
+                </button>
+            `
+        }else{
+            container.innerHTML=`
+                <div class="text-center py-16 text-anon-muted">
+                    ${escapeHtml(error.message||"Failed to load media")}
+                </div>
+            `
+        }
+    }finally{
+        userMediaState.loading=false
+    }
+}
+
+async function openUserLinks(lid,key){
+    if(!lid||!key)return
+
+    openModal("userLinksModal")
+
+    const container=el("all-user-links")
+    if(!container)return
+
+    container.innerHTML=`
+        <div class="flex justify-center py-12 text-anon-muted">
+            <i class="fas fa-spinner fa-spin text-2xl"></i>
+        </div>
+    `
+
+    try{
+        const res=await fetch(`/api/user/links/${encodeURIComponent(key)}?lid=${encodeURIComponent(lid)}`)
+        const data=await res.json()
+
+        if(!res.ok||!data.success){
+            throw new Error(data.error||"Failed to load links")
+        }
+
+        if(!data.links?.length){
+            container.innerHTML=`
+                <div class="flex flex-col items-center justify-center py-16 text-anon-muted">
+                    <i class="fas fa-link text-4xl mb-3"></i>
+                    <div class="text-sm">No links found</div>
+                </div>
+            `
+            return
+        }
+
+        let html=""
+
+        data.links.forEach(link=>{
+            let url=""
+
+            try{
+                const parsed=new URL(link.link_url)
+                if(!["http:","https:"].includes(parsed.protocol))return
+                url=parsed.href
+            }catch{
+                return
+            }
+
+            const title=escapeHtml(link.link_title||link.link_site_name||url)
+            const description=escapeHtml(link.link_description||"")
+            const site=escapeHtml(link.link_site_name||new URL(url).hostname)
+            const image=link.link_image?escapeAttr(link.link_image):""
+            const date=new Date(link.created_at*1000).toLocaleDateString()
+
+            html+=`
+                <a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer"
+                    class="block bg-anon-panel rounded-xl overflow-hidden hover:bg-anon-accent/30 transition">
+                    ${image?`
+                        <img src="${image}" loading="lazy" class="w-full h-36 object-cover">
+                    `:""}
+                    <div class="p-3">
+                        <div class="text-[10px] uppercase text-anon-muted mb-1">${site}</div>
+                        <div class="text-sm font-semibold text-anon-text line-clamp-2">${title}</div>
+                        ${description?`
+                            <div class="text-xs text-anon-muted mt-1 line-clamp-2">${description}</div>
+                        `:""}
+                        <div class="flex items-center justify-between mt-3">
+                            <span class="text-[10px] text-anon-muted">${date}</span>
+                            <i class="fas fa-external-link-alt text-xs text-anon-muted"></i>
+                        </div>
+                    </div>
+                </a>
+            `
+        })
+
+        container.innerHTML=html?`
+            <div class="text-xs text-anon-muted mb-3">${data.links.length} shared links</div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${html}</div>
+        `:`
+            <div class="text-center py-16 text-anon-muted">
+                No valid links found
+            </div>
+        `
+
+    }catch(error){
+        console.error("[USER LINKS]",error)
+
+        container.innerHTML=`
+            <div class="text-center py-16 text-anon-muted">
+                <i class="fas fa-circle-exclamation text-3xl"></i>
+                <div class="text-sm mt-3">${escapeHtml(error.message||"Failed to load links")}</div>
+            </div>
+        `
+    }
+}
+
 
 function markStatusAsViewed(item) {
 	if (!item) return;
@@ -5598,7 +5924,7 @@ function openMediaModal(src, type, mimeType = "video/mp4", gallery = null, index
 	if (!modal) {
 		modal = document.createElement("div");
 		modal.id = "global-media-modal";
-		modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 hidden";
+		modal.className = "fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 hidden";
 		modal.onclick = e => {
 			if (e.target === modal || e.target.id === "modal-close-btn") closeMediaModal();
 		};

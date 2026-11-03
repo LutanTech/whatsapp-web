@@ -1425,6 +1425,105 @@ app.get("/api/conversations/:key", requireSession, async (req, res) => {
         res.status(500).json({ error: err.message })
     }
 })
+app.get("/api/user/media/:key",requireSession,async(req,res)=>{
+    try{
+        const key=decodeURIComponent(req.params.key)
+        const lid=String(req.query.lid||"").trim()
+        const limit=Math.min(Math.max(Number(req.query.limit)||50,10),100)
+        const before=Number(req.query.before||0)
+
+        if(!lid){
+            return res.status(400).json({success:false,error:"Missing participant LID"})
+        }
+
+        const rows=await all(`
+            SELECT *
+            FROM messages
+            WHERE conversation_key=?
+            AND sender=?
+            AND from_me=0
+            AND is_status=0
+            AND media_path IS NOT NULL
+            AND media_path!=''
+            ${before?"AND id < ?":""}
+            ORDER BY created_at DESC,id DESC
+            LIMIT ?
+        `,before?[key,lid,before,limit]:[key,lid,limit])
+
+        rows.reverse()
+
+        const oldest=rows[0]||null
+
+        const more=oldest
+            ?await all(`
+                SELECT id
+                FROM messages
+                WHERE conversation_key=?
+                AND sender=?
+                AND from_me=0
+                AND is_status=0
+                AND media_path IS NOT NULL
+                AND media_path!=''
+                AND id<?
+                LIMIT 1
+            `,[key,lid,oldest.id])
+            :[]
+
+        return res.json({
+            success:true,
+            conversation_key:key,
+            lid,
+            total:rows.length,
+            media:rows,
+            has_more:more.length>0,
+            next_before:oldest?.id||0
+        })
+    }catch(err){
+        console.error("[API] User media error:",err.message)
+        res.status(500).json({success:false,error:err.message})
+    }
+})
+
+
+app.get("/api/user/links/:key",requireSession,async(req,res)=>{
+    try{
+        const key=decodeURIComponent(req.params.key)
+        const lid=String(req.query.lid||"").trim()
+        const limit=Math.min(Math.max(Number(req.query.limit)||50,10),100)
+        const before=Number(req.query.before||0)
+
+        if(!lid){
+            return res.status(400).json({success:false,error:"Missing participant LID"})
+        }
+
+        const rows=await all(`
+            SELECT id,link_url,link_title,link_description,link_image,link_site_name,link_type,created_at
+            FROM messages
+            WHERE conversation_key=?
+            AND sender=?
+            AND from_me=0
+            AND is_status=0
+            AND link_url IS NOT NULL
+            AND link_url!=''
+            ${before?"AND id < ?":""}
+            ORDER BY created_at DESC,id DESC
+            LIMIT ?
+        `,before?[key,lid,before,limit]:[key,lid,limit])
+
+        return res.json({
+            success:true,
+            conversation_key:key,
+            lid,
+            total:rows.length,
+            links:rows,
+            has_more:rows.length===limit,
+            next_before:rows[rows.length-1]?.id||0
+        })
+    }catch(err){
+        console.error("[API] User links error:",err.message)
+        res.status(500).json({success:false,error:err.message})
+    }
+})
 
 app.get("/api/user/availability",authenticateApiKey,async(req,res)=>{
     try{
