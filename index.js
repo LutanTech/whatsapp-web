@@ -1609,12 +1609,21 @@ app.get("/api/user/about",async(req,res)=>{
             resolvedJid=r?.[0]?.jid||phoneJid
         }catch{}
 
-        let is_saved=false
+        let savedContact=null
 
         try{
-            const saved=await getStoredContact(resolvedJid)
-            is_saved=!!saved
-        }catch{}
+            savedContact=(await all(`
+                SELECT *
+                FROM contacts
+                WHERE session=?
+                AND phone=?
+                LIMIT 1
+            `,[sessionId,phone]))[0]||null
+        }catch(error){
+            console.error("[ABOUT] Stored contact error:",error.message)
+        }
+
+        const is_saved=!!savedContact
 
         let about=""
         try{
@@ -1653,10 +1662,10 @@ app.get("/api/user/about",async(req,res)=>{
             contact.notify||
             waContact.pushName||
             waContact.notify||
-            waContact.name||
             ""
 
         const name=
+            savedContact?.name||
             contact.name||
             contact.notify||
             contact.pushName||

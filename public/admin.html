@@ -758,7 +758,7 @@ body.theme-emerald #chatMessagesContainer {
 							<span id="chatPresenceDot" class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-slate-500 border-2 border-anon-sidebar" title="Offline"></span>
 						</div>
 						
-						<div class="min-w-0">
+						<div class="min-w-0 hover:bg-anon-border p-1 hover:cursor-pointer" onclick="getUserAbout(`${activeThread.jid}`)">
 							<h2 id="chatTitle" class="w-full font-bold text-sm text-anon-text truncate privacy-sensitive"> Select a conversation</h2>
 							<p id="chatSubtitle" class="text-[11px] text-anon-accent font-mono truncate privacy-sensitive">About coming soon.</p>
 						</div>
@@ -1649,7 +1649,7 @@ body.theme-emerald #chatMessagesContainer {
 	
 				<div>
 					<label class="block text-[10px] font-semibold text-anon-muted uppercase tracking-wider mb-1.5">Phone</label>
-					<input id="saveContactPhone" type="text" readonly class="w-full h-10 px-3 rounded-lg bg-anon-panel/60 border border-anon-border text-xs text-anon-muted outline-none hidden" placeholder="Resolved when saved">
+					<input id="saveContactPhone" type="text" readonly class="w-full h-10 px-3 rounded-lg bg-anon-panel/60 border border-anon-border text-xs text-anon-muted outline-none" placeholder="Resolved when saved">
 				</div>
 	
 				<div>
@@ -1999,11 +1999,13 @@ function openSaveContactModal(jid=null){
 	}
     const c=conversations.find(x=>x.conversation_key===activeThread?.conversation_key)||activeThread
 
-    if(!c?.jid || !jid)
-        return showToast("No contact selected")
+    if(!c?.jid && !jid){
+	    console.log(activeThread)
+        return showToast("No contact selected" + activeThread.jid, "error")
+	}
 
     document.getElementById("saveContactName").value=c.chat_name||c.sender_name||c.push_name||""
-    document.getElementById("saveContactPhone").value=String(c.jid).endsWith("@lid")?"Will be resolved":""
+    document.getElementById("saveContactPhone").value=String(c.phone)
     document.getElementById("saveContactEmail").value=""
     document.getElementById("saveContactError").classList.add("hidden")
 
@@ -3382,6 +3384,7 @@ async function openConversation(key, phone='') {
 		conversation_key: key,
 		readOnly: conversation.jid === "status@broadcast",
 		messages: [],
+		jid:conversation.jid,
 		hasMore: false,
 		nextBefore: 0,
 		loadingMore: false
@@ -3954,6 +3957,7 @@ function renderNormalMessages(messages){
 					const avatarBg=colorIndex>=0?avatarHexColors[colorIndex]:"475569";
 					const avatarUrl=m.sender_avatar||`https://placehold.co/400x400/${avatarBg}/FFFFFF?text=${encodeURIComponent(initial)}&font=roboto`;
 
+
                 return`
                     <div class="flex flex-col w-full ${self?"items-end":"items-start"}">
                         <div class="max-w-[85%] sm:max-w-[70%]">
@@ -4099,6 +4103,7 @@ function renderNormalMessages(messages){
 		const colorIndex=letterIndex>=0&&letterIndex<26?letterIndex:-1;
 		const avatarColor=colorIndex>=0?avatarHexColors[colorIndex]:"475569";
 		const avatarBg=colorIndex>=0?avatarHexColors[colorIndex]:"475569";
+		avatarUrl = ''
 		avatarUrl=m.sender_avatar||`https://placehold.co/400x400/${avatarBg}/FFFFFF?text=${encodeURIComponent(initial)}&font=roboto`;
 
 		const status=String(m.status||m.message_status||"sent").toLowerCase();
@@ -4123,6 +4128,9 @@ function renderNormalMessages(messages){
                     <i class="fa-solid fa-user-plus mr-1"></i>Accept
                 </button>
             </div>`:"";
+		
+	    console.log(m.sender_avatar,  avatarUrl, m)
+
 
         return`
 		
@@ -4924,6 +4932,7 @@ function renderChatThread(messages, isLoading = false) {
 				}) => {
 					const senderName = items[0].sender_name || items[0].push_name || items[0].sender || uid;
 					const avatarPic = items[0].img || items[0].avatar || items[0].profile_pic;
+					console.log(avatarPic)
 					const formattedTime = latestTime ? new Date(latestTime * 1000)
 						.toLocaleTimeString([], {
 							hour: "2-digit",
