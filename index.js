@@ -1046,7 +1046,7 @@ app.get("/api/conversations", requireSession, async (req, res) => {
                 if(phone.endsWith("@lid")){
                     phone=await s.sock.signalRepository.lidMapping.getPNForLID(phone)
                     if(!phone)
-                        return res.status(404).json({error:"Could not resolve phone number"})
+                        phone=""
                 }
                 phone=phone
                 .replace("@s.whatsapp.net","")
